@@ -45,5 +45,10 @@ class DatabaseSeeder extends Seeder
         User::factory()->count(5)->create([
             'role' => 'teacher'
         ]);
+
+        $this->call([
+            SubjectSeeder::class,
+            QuestionSeeder::class,
+        ]);
     }
 }
