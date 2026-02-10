@@ -5,13 +5,13 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
+use App\Http\Middleware\RoleMiddleware;
 
 class DashboardController extends Controller
 {
     public function __construct()
     {
         // Apply auth middleware to all methods in this controller
-          $this->middleware('auth');
     }
 
     public function index()

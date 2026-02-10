@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('layouts.app.main')
 
 @section('title', 'User Management')
 
@@ -36,8 +36,10 @@
                         <div class="col-md-3">
                             <select name="role" class="form-select" onchange="this.form.submit()">
                                 <option value="">All Roles</option>
-                                <option value="student" {{ request('role') == 'student' ? 'selected' : '' }}>Student</option>
-                                <option value="teacher" {{ request('role') == 'teacher' ? 'selected' : '' }}>Teacher</option>
+                                <option value="student" {{ request('role') == 'student' ? 'selected' : '' }}>Student
+                                </option>
+                                <option value="teacher" {{ request('role') == 'teacher' ? 'selected' : '' }}>Teacher
+                                </option>
                                 <option value="admin" {{ request('role') == 'admin' ? 'selected' : '' }}>Admin</option>
                             </select>
                         </div>
@@ -49,7 +51,8 @@
                             </div>
                         </div>
                         <div class="col-md-3">
-                            <a href="{{ route('admin.users.index') }}" class="btn btn-outline-secondary">Clear Filters</a>
+                            <a href="{{ route('admin.users.index') }}" class="btn btn-outline-secondary">Clear
+                                Filters</a>
                         </div>
                     </div>
                 </form>
@@ -99,11 +102,12 @@
                                     <a href="{{ route('admin.users.edit', $user) }}"
                                        class="btn btn-sm btn-outline-primary me-1">Edit</a>
                                     <form action="{{ route('admin.users.destroy', $user) }}" method="POST"
-                                          class="d-inline" onsubmit="return confirm('Are you sure you want to delete this user?')">
+                                          class="d-inline"
+                                          onsubmit="return confirm('Are you sure you want to delete this user?')">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="btn btn-sm btn-outline-danger"
-                                            {{ $user->id == auth()->id() ? 'disabled' : '' }}>
+                                                {{ $user->id == auth()->id() ? 'disabled' : '' }}>
                                             Delete
                                         </button>
                                     </form>

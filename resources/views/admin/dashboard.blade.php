@@ -63,8 +63,8 @@
                         <h5 class="card-title mb-0">Quick Actions</h5>
                     </div>
                     <div class="card-body">
-                        <a href="{{ route('admin.users.index') }}" class="btn btn-primary me-2">Manage Users</a>
-                        <a href="{{ route('admin.users.create') }}" class="btn btn-success">Add New User</a>
+                        <a href="{{ route('users.index') }}" class="btn btn-primary me-2">Manage Users</a>
+                        <a href="{{ route('users.create') }}" class="btn btn-success">Add New User</a>
                         <a href="{{ route('home') }}" class="btn btn-outline-secondary ms-2">Back to Home</a>
                     </div>
                 </div>

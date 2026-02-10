@@ -12,8 +12,7 @@ class UserController extends Controller
 {
     public function __construct()
     {
-        // Apply auth middleware to all methods in this controller
-        $this->middleware('auth');
+
     }
 
     // Helper method to check if user is admin
@@ -46,13 +45,13 @@ class UserController extends Controller
 
         $users = $query->latest()->paginate(10);
 
-        return view('admin.users.index', compact('users'));
+        return view('users.index', compact('users'));
     }
 
     public function create()
     {
         $this->checkAdmin();
-        return view('admin.users.create');
+        return view('users.create');
     }
 
     public function store(Request $request)
@@ -73,20 +72,20 @@ class UserController extends Controller
             'role' => $validated['role'],
         ]);
 
-        return redirect()->route('admin.users.index')
+        return redirect()->route('users.index')
             ->with('success', 'User created successfully.');
     }
 
     public function show(User $user)
     {
         $this->checkAdmin();
-        return view('admin.users.show', compact('user'));
+        return view('users.show', compact('user'));
     }
 
     public function edit(User $user)
     {
         $this->checkAdmin();
-        return view('admin.users.edit', compact('user'));
+        return view('users.edit', compact('user'));
     }
 
     public function update(Request $request, User $user)
@@ -112,7 +111,7 @@ class UserController extends Controller
 
         $user->update($updateData);
 
-        return redirect()->route('admin.users.index')
+        return redirect()->route('users.index')
             ->with('success', 'User updated successfully.');
     }
 
@@ -121,13 +120,13 @@ class UserController extends Controller
         $this->checkAdmin();
 
         if (auth()->id() === $user->id) {
-            return redirect()->route('admin.users.index')
+            return redirect()->route('users.index')
                 ->with('error', 'You cannot delete your own account.');
         }
 
         $user->delete();
 
-        return redirect()->route('admin.users.index')
+        return redirect()->route('users.index')
             ->with('success', 'User deleted successfully.');
     }
 }

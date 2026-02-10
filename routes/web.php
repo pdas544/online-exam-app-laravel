@@ -4,6 +4,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\QuestionController;
+use App\Http\Controllers\SubjectController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
@@ -28,6 +30,17 @@ Route::middleware(['auth'])->group(function () {
     // Admin routes - using simple auth middleware with role checks in controllers
     Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-        Route::resource('/users', UserController::class);
+
+
     });
+
+    Route::resource('users', UserController::class);
+    Route::resource('subjects', SubjectController::class);
+    Route::resource('exams', ExamController::class);
+    Route::resource('questions', QuestionController::class);
+
+    // Optional: Bulk import route
+    Route::get('questions/import', [QuestionController::class, 'import'])
+        ->name('questions.import');
+
 });

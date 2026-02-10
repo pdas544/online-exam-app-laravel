@@ -33,8 +33,14 @@
 
                                 @if(auth()->user()->isAdmin())
                                     <div class="mt-3">
-                                        <a href="{{ route('admin.dashboard') }}" class="btn btn-primary me-2">Admin Dashboard</a>
-                                        <a href="{{ route('admin.users.index') }}" class="btn btn-outline-primary">Manage Users</a>
+                                        <a href="{{ route('admin.dashboard') }}" class="btn btn-primary me-2">Admin
+                                            Dashboard</a>
+                                        <a href="{{ route('users.index') }}" class="btn btn-outline-primary">Manage
+                                            Users</a>
+                                        <a href="{{ route('exams.index') }}" class="btn btn-outline-primary">Manage
+                                            Exams</a>
+                                        <a href="{{ route('questions.index') }}" class="btn btn-outline-primary">Manage
+                                            Questions</a>
                                     </div>
                                 @elseif(auth()->user()->isTeacher())
                                     <div class="mt-3">
