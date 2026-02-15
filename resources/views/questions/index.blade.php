@@ -1,134 +1,185 @@
-@extends('layouts.app.main')
+@extends('layouts.app')
 
-@section('title', 'User Management')
+@section('title', 'Questions Bank')
+@section('page-title', 'Questions Bank')
+
 
 @section('content')
-    <div class="container-fluid">
-        <!-- Header with Navigation -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-                <h1 class="h3">User Management</h1>
-                <nav aria-label="breadcrumb">
-                    <ol class="breadcrumb">
-                        <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
-                        <li class="breadcrumb-item"><a href="{{ route('admin.dashboard') }}">Admin Dashboard</a></li>
-                        <li class="breadcrumb-item active">Users</li>
-                    </ol>
-                </nav>
-            </div>
-            <div>
-                <a href="{{ route('admin.users.create') }}" class="btn btn-primary me-2">
-                    <i class="bi bi-plus-circle"></i> Add User
-                </a>
-                <a href="{{ route('admin.dashboard') }}" class="btn btn-outline-secondary me-2">Dashboard</a>
-                <form method="POST" action="{{ route('logout') }}" class="d-inline">
-                    @csrf
-                    <button type="submit" class="btn btn-outline-danger">Logout</button>
-                </form>
-            </div>
+    <div class="d-flex justify-content-between align-items-center m-3">
+        <div>
+            <h1 class="h3">Subject Management</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{{ route('admin.dashboard') }}">Admin Dashboard</a></li>
+                    <li class="breadcrumb-item active">Questions</li>
+                </ol>
+            </nav>
         </div>
 
-        <!-- Filters -->
-        <div class="card mb-4">
-            <div class="card-body">
-                <form method="GET" action="{{ route('admin.users.index') }}">
-                    <div class="row g-3">
-                        <div class="col-md-3">
-                            <select name="role" class="form-select" onchange="this.form.submit()">
-                                <option value="">All Roles</option>
-                                <option value="student" {{ request('role') == 'student' ? 'selected' : '' }}>Student
-                                </option>
-                                <option value="teacher" {{ request('role') == 'teacher' ? 'selected' : '' }}>Teacher
-                                </option>
-                                <option value="admin" {{ request('role') == 'admin' ? 'selected' : '' }}>Admin</option>
+
+        @section('header-buttons-right')
+            <div class="d-flex justify-content-end m-3">
+                <a href="{{ route('questions.create') }}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Add a Question
+                </a>
+            </div>
+        @endsection
+
+
+    </div>
+    <div class="card">
+        <div class="card-body">
+            <!-- Filters -->
+            <div class="row mb-4">
+                <div class="col-md-8">
+                    <form method="GET" action="{{ route('questions.index') }}" class="row g-3">
+                        <div class="col-md-4">
+                            <select name="subject_id" class="form-select" onchange="this.form.submit()">
+                                <option value="">All Subjects</option>
+                                @foreach($subjects as $subject)
+                                    <option value="{{ $subject->id }}"
+                                        {{ request('subject_id') == $subject->id ? 'selected' : '' }}>
+                                        {{ $subject->name }}
+                                    </option>
+                                @endforeach
                             </select>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-4">
+                            <select name="question_type" class="form-select" onchange="this.form.submit()">
+                                <option value="">All Types</option>
+                                <option value="multiple_choice_single"
+                                    {{ request('question_type') == 'multiple_choice_single' ? 'selected' : '' }}>
+                                    Multiple Choice (Single)
+                                </option>
+                                <option value="multiple_choice_multiple"
+                                    {{ request('question_type') == 'multiple_choice_multiple' ? 'selected' : '' }}>
+                                    Multiple Choice (Multiple)
+                                </option>
+                                <option value="true_false"
+                                    {{ request('question_type') == 'true_false' ? 'selected' : '' }}>
+                                    True/False
+                                </option>
+                                <option value="fill_blank"
+                                    {{ request('question_type') == 'fill_blank' ? 'selected' : '' }}>
+                                    Fill in Blank
+                                </option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
                             <div class="input-group">
                                 <input type="text" name="search" class="form-control"
-                                       placeholder="Search users..." value="{{ request('search') }}">
-                                <button type="submit" class="btn btn-outline-secondary">Search</button>
+                                       placeholder="Search questions..." value="{{ request('search') }}">
+                                <button class="btn btn-outline-secondary" type="submit">
+                                    <i class="bi bi-search"></i>
+                                </button>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <a href="{{ route('admin.users.index') }}" class="btn btn-outline-secondary">Clear
-                                Filters</a>
-                        </div>
-                    </div>
-                </form>
+                    </form>
+                </div>
             </div>
-        </div>
 
-        <!-- Users Table -->
-        <div class="card">
-            <div class="card-body">
-                @if(session('success'))
-                    <div class="alert alert-success alert-dismissible fade show" role="alert">
-                        {{ session('success') }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                @endif
-
-                @if(session('error'))
-                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                        {{ session('error') }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                @endif
-
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead>
+            <!-- Questions Table -->
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Question</th>
+                        <th>Type</th>
+                        <th>Subject</th>
+                        <th>Points</th>
+                        <th>Used In</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @forelse($questions as $question)
                         <tr>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Role</th>
-                            <th>Created At</th>
-                            <th>Actions</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        @forelse($users as $user)
-                            <tr>
-                                <td>{{ $user->name }}</td>
-                                <td>{{ $user->email }}</td>
-                                <td>
-                                    <span class="badge {{ $user->role == 'admin' ? 'bg-danger' : ($user->role == 'teacher' ? 'bg-primary' : 'bg-success') }}">
-                                        {{ ucfirst($user->role) }}
-                                    </span>
-                                </td>
-                                <td>{{ $user->created_at->format('M d, Y') }}</td>
-                                <td>
-                                    <a href="{{ route('admin.users.edit', $user) }}"
-                                       class="btn btn-sm btn-outline-primary me-1">Edit</a>
-                                    <form action="{{ route('admin.users.destroy', $user) }}" method="POST"
-                                          class="d-inline"
-                                          onsubmit="return confirm('Are you sure you want to delete this user?')">
+                            <td>{{ $question->id }}</td>
+                            <td>
+                                <div class="question-text">
+                                    <strong>{{ Str::limit($question->question_text, 70) }}</strong>
+                                    @if($question->explanation)
+                                        <small class="d-block text-muted mt-1">
+                                            <i class="fas fa-info-circle"></i>
+                                            {{ Str::limit($question->explanation, 50) }}
+                                        </small>
+                                    @endif
+                                </div>
+                            </td>
+                            <td>
+                                @php
+                                    $typeColors = [
+                                        'multiple_choice_single' => 'primary',
+                                        'multiple_choice_multiple' => 'info',
+                                        'true_false' => 'success',
+                                        'fill_blank' => 'warning'
+                                    ];
+                                @endphp
+                                <span class="badge bg-{{ $typeColors[$question->question_type] ?? 'secondary' }}">
+                                {{ strtoupper(str_replace('_', ' ', $question->question_type)) }}
+                            </span>
+                            </td>
+                            <td>
+                            <span class="badge bg-light text-dark">
+                                {{ $question->subject->name }}
+                            </span>
+                            </td>
+                            <td>
+                                <span class="badge bg-dark">{{ $question->points }}</span>
+                            </td>
+                            <td>
+                            <span class="badge bg-secondary">
+                                {{ $question->exams_count ?? 0 }} exams
+                            </span>
+                            </td>
+                            <td>
+                                <div class="btn-group gap-2" role="group">
+                                    <a href="{{ route('questions.show', $question) }}"
+                                       class="btn btn-sm btn-info" title="View">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a href="{{ route('questions.edit', $question) }}"
+                                       class="btn btn-sm btn-warning" title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <form action="{{ route('questions.destroy', $question) }}"
+                                          method="POST" class="d-inline"
+                                          onsubmit="return confirm('Delete this question?')">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="btn btn-sm btn-outline-danger"
-                                                {{ $user->id == auth()->id() ? 'disabled' : '' }}>
-                                            Delete
+                                        <button type="submit" class="btn btn-sm btn-danger" title="Delete"
+                                            {{ $question->exams_count > 0 ? 'disabled' : '' }}>
+                                            <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="5" class="text-center">No users found.</td>
-                            </tr>
-                        @endforelse
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Pagination -->
-                @if($users->hasPages())
-                    <div class="d-flex justify-content-center mt-4">
-                        {{ $users->links() }}
-                    </div>
-                @endif
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="7" class="text-center py-5">
+                                <div class="text-muted">
+                                    <i class="fas fa-question-circle fa-3x mb-3"></i>
+                                    <p>No questions found.</p>
+                                    <a href="{{ route('questions.create') }}" class="btn btn-primary">
+                                        Create First Question
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    @endforelse
+                    </tbody>
+                </table>
             </div>
+
+            <!-- Pagination -->
+            @if($questions->hasPages())
+                <div class="d-flex justify-content-center mt-4">
+                    {{ $questions->links() }}
+                </div>
+            @endif
         </div>
     </div>
 @endsection

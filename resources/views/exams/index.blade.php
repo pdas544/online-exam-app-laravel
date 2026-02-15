@@ -1,4 +1,4 @@
-@extends('layouts.app.main')
+N@extends('layouts.app.main')
 
 @section('title', 'User Management')
 

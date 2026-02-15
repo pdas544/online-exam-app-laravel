@@ -29,10 +29,10 @@
                         <ul class="dropdown-menu">
                             @if(auth()->user()->isAdmin())
                                 <li><a class="dropdown-item" href="{{ route('admin.dashboard') }}">Admin Dashboard</a></li>
-                                <li><a class="dropdown-item" href="#">Manage Users</a></li>
+                                <li><a class="dropdown-item" href="{{route('users.index')}}">Manage Users</a></li>
                                 <li><a class="dropdown-item" href={{route('subjects.index')}}>Manage Subjects</a></li>
-                                <li><a class="dropdown-item" href="#">Manage Exams</a></li>
-                                <li><a class="dropdown-item" href="#">Manage Questions</a></li>
+                                <li><a class="dropdown-item" href="{{route('exams.index')}}">Manage Exams</a></li>
+                                <li><a class="dropdown-item" href="{{route('questions.index')}}">Manage Questions</a></li>
                                 <li><hr class="dropdown-divider"></li>
                             @elseif(auth()->user()->isTeacher())
                                 <li><a class="dropdown-item" href="{{ route('admin.dashboard') }}">Teacher Dashboard</a></li>
@@ -78,3 +78,4 @@
 @yield('scripts')
 </body>
 </html>
+

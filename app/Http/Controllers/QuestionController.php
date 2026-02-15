@@ -48,7 +48,12 @@ class QuestionController extends Controller
         }
 
         $questions = $query->latest()->paginate(15);
-        $subjects = Subject::forTeacher($user->id)->get();
+        $subjectQuery = Subject::query();
+        if(!$user->isAdmin()){
+            $subjectQuery->forTeacher($user->id);
+        }
+
+        $subjects = $subjectQuery->orderBy('name')->get();
 
         return view('questions.index', compact('questions', 'subjects'));
     }
@@ -59,8 +64,11 @@ class QuestionController extends Controller
     public function create()
     {
         $user = Auth::user();
-        $subjects = Subject::forTeacher($user->id)->get();
-
+        $subjectQuery = Subject::query();
+        if(!$user->isAdmin()){
+            $subjectQuery->forTeacher($user->id);
+        }
+        $subjects = $subjectQuery->orderBy('name')->get();
         return view('questions.create', compact('subjects'));
     }
 
@@ -107,9 +115,40 @@ class QuestionController extends Controller
         }
 
         $user = Auth::user();
-        $subjects = Subject::forTeacher($user->id)->get();
+        $subjectQuery = Subject::query();
+        if(!$user->isAdmin()){
+            $subjects = Subject::forTeacher($user->id);
+        }
+
+        $subjects = $subjectQuery->orderBy('name')->get();
+        if (!$subjects->contains('id', $question->subject_id)) {
+            $selectedSubject = Subject::query()->whereKey($question->subject_id)->first();
+            if ($selectedSubject) {
+                $subjects = $subjects->push($selectedSubject)->sortBy('name')->values();
+            }
+        }
 
         return view('questions.edit', compact('question', 'subjects'));
+    }
+
+    public function duplicate(Request $request, Question $question)
+    {
+        $newQuestion = $question->replicate();
+        $newQuestion->question_text = '[COPY] ' . $question->question_text;
+
+        if ($request->filled('subject_id')) {
+            $newQuestion->subject_id = $request->subject_id;
+        }
+
+        if (!$request->has('include_explanation')) {
+            $newQuestion->explanation = null;
+        }
+
+        $newQuestion->created_by = Auth::id();
+        $newQuestion->save();
+
+        return redirect()->route('questions.show', $newQuestion)
+            ->with('success', 'Question duplicated successfully.');
     }
 
     /**
@@ -163,7 +202,7 @@ class QuestionController extends Controller
             'question_text' => 'required|string|min:10|max:2000',
             'question_type' => [
                 'required',
-                Rule::in(['multiple_choice_single', 'multiple_choice_multiple', 'true_false', 'fill_blank'])
+                Rule::in(['mcq_single', 'mcq_multiple', 'true_false', 'fill_blank'])
             ],
             'points' => 'required|integer|min:1|max:10',
             'explanation' => 'nullable|string|max:1000',
@@ -171,14 +210,14 @@ class QuestionController extends Controller
 
         // Type-specific validations
         switch ($request->question_type) {
-            case 'multiple_choice_single':
-            case 'multiple_choice_multiple':
+            case 'mcq_single':
+            case 'mcq_multiple':
                 $rules['options'] = 'required|array|min:2|max:6';
                 $rules['options.*'] = 'required|string|max:500';
                 $rules['correct_answers'] = 'required|array|min:1';
                 $rules['correct_answers.*'] = 'required|string|in:A,B,C,D,E,F';
 
-                if ($request->question_type === 'multiple_choice_single') {
+                if ($request->question_type === 'mcq_single') {
                     $rules['correct_answers'] = 'required|array|size:1';
                 }
                 break;

@@ -38,7 +38,7 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('subjects', SubjectController::class);
     Route::resource('exams', ExamController::class);
     Route::resource('questions', QuestionController::class);
-
+    Route::post('/questions/{question}/duplicate', [QuestionController::class, 'duplicate'])->name('questions.duplicate');
     // Optional: Bulk import route
     Route::get('questions/import', [QuestionController::class, 'import'])
         ->name('questions.import');
