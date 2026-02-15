@@ -4,12 +4,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (!typeSelect || !root) return;
 
-  const oldOptions = JSON.parse(root.dataset.oldOptions || '[]');
-  const oldCorrect = JSON.parse(root.dataset.oldCorrect || '[]');
+  //parse the json safely
+  function safeJsonParse(value){
+      try {
+      return JSON.parse(value);
+      }catch(e){
+          return value;
+      }
+  }
+
+  //normalize the json values
+    function normalizeOptions(raw){
+      if(raw == null) return [];
+
+      if(typeof raw === 'string') return safeJsonParse(raw);
+
+      if(Array.isArray(raw)) return raw;
+
+      if(typeof raw === 'object') {
+          const letters = Object.keys(raw).sort();
+          return letters.map((k) => raw[k]);
+      }
+
+      return [];
+    }
+
+    function normalizeCorrect(raw){
+      if(raw == null) return [];
+
+      if(typeof raw === 'string') {
+          raw = safeJsonParse(raw);
+      }
+
+      if(Array.isArray(raw)) return raw;
+
+      return [String(raw)];
+    }
+
+  const oldOptions = normalizeOptions(safeJsonParse(root.dataset.oldOptions || '[]'));
+  const oldCorrect = normalizeCorrect(safeJsonParse(root.dataset.oldCorrect || '[]'));
 
   const state = {
-    type: typeSelect.value || '',
-    optionCount: Math.max(4, oldOptions.length || 0),
+      ype: typeSelect.value || root.dataset.questionType || '',
+      optionCount: Math.max(4, oldOptions.length || 0),
   };
 
   function clearRoot() {
@@ -163,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   function render() {
-    state.type = typeSelect.value || '';
+    state.type = typeSelect.value || root.dataset.questionType || '';
     if (state.type === 'mcq_single' || state.type === 'mcq_multiple') return renderMcq();
     if (state.type === 'true_false') return renderTrueFalse();
     if (state.type === 'fill_blank') return renderFillBlank();

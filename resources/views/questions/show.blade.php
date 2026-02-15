@@ -4,31 +4,6 @@
 @section('page-title', 'Question Details')
 
 @section('content')
-    <div class="d-flex justify-content-between align-items-center m-3">
-        <div>
-            <h1 class="h3">Question Management</h1>
-            <nav aria-label="breadcrumb">
-                <ol class="breadcrumb">
-                    <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
-                    <li class="breadcrumb-item"><a href="{{ route('admin.dashboard') }}">Admin Dashboard</a></li>
-                    <li class="breadcrumb-item active">Questions</li>
-                </ol>
-            </nav>
-        </div>
-        @section('header-buttons-right')
-
-            <div class="d-flex justify-content-end m-3 gap-1">
-                <a href="{{ route('questions.create') }}" class="btn btn-primary">
-                    <i class="bi bi-plus-circle"></i> Add Question
-                </a>
-
-                <a href="{{ route('questions.index') }}" class="btn btn-primary">
-                    <i class="bi bi-eye"></i> View All Questions
-                </a>
-            </div>
-        @endsection
-
-    </div>
     <div class="row">
         <!-- Main Question Details -->
         <div class="col-md-8">
@@ -90,11 +65,19 @@
                             @case('mcq_multiple')
                                 <div class="row">
                                     @php
-                                        $options = is_array($question->options) ? $question->options : json_decode($question->options, true);
-                                        $correctAnswers = is_array($question->correct_answers) ? $question->correct_answers : json_decode($question->correct_answers, true);
+                                        $options = $question->options;
+                                        $correctAnswers = $question->correct_answers;
+
+                                        if (!is_array($options)) {
+                                            $options = $options ? json_decode($options, true) : [];
+                                        }
+                                        if (!is_array($correctAnswers)) {
+                                            $correctAnswers = $correctAnswers ? json_decode($correctAnswers, true) : [];
+                                        }
+
                                     @endphp
 
-                                    @foreach($options as $letter => $option)
+                                    @forelse($options as $letter => $option)
                                         <div class="col-md-6 mb-3">
                                             <div class="card h-100 {{ in_array($letter, $correctAnswers) ? 'border-success bg-success-light' : '' }}">
                                                 <div class="card-body d-flex align-items-center">
@@ -114,7 +97,13 @@
                                                 </div>
                                             </div>
                                         </div>
-                                    @endforeach
+                                    @empty
+                                        <div class="col-12">
+                                            <div class="alert alert-warning mb-0">
+                                                No options found for this question.
+                                            </div>
+                                        </div>
+                                    @endforelse
                                 </div>
                                 @break
 
@@ -402,9 +391,4 @@
     </div>
 @endsection
 
-@push('styles')
-    <style>
-
-    </style>
-@endpush
 

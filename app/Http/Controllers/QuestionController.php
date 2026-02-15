@@ -25,7 +25,7 @@ class QuestionController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
-        $query = Question::with(['subject', 'creator']);
+        $query = Question::with(['subject', 'creator'])->withCount('exams');
 
         // Filter by subject if provided
         if ($request->has('subject_id') && $request->subject_id) {
@@ -250,8 +250,8 @@ class QuestionController extends Controller
         ];
 
         switch ($validatedData['question_type']) {
-            case 'multiple_choice_single':
-            case 'multiple_choice_multiple':
+            case 'mcq_single':
+            case 'mcq_multiple':
                 // Format options as JSON: {"A": "Option text", "B": "Option text"}
                 $options = [];
                 foreach ($validatedData['options'] as $index => $option) {

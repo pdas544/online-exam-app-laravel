@@ -5,6 +5,16 @@
 
 
 @section('content')
+    @if(session('success'))
+        <div class="alert alert-success mx-3 mt-3 mb-0">
+            {{ session('success') }}
+        </div>
+    @endif
+    @if(session('error'))
+        <div class="alert alert-danger mx-3 mt-3 mb-0">
+            {{ session('error') }}
+        </div>
+    @endif
     <div class="d-flex justify-content-between align-items-center m-3">
         <div>
             <h1 class="h3">Subject Management</h1>
