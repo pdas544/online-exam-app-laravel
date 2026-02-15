@@ -1,0 +1,23 @@
+.bg-success-light {
+    background-color: #d4edda !important;
+}
+.border-success {
+    border-color: #28a745 !important;
+}
+.card {
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.card-header {
+    border-radius: 10px 10px 0 0 !important;
+    font-weight: 600;
+}
+.question-text {
+    /*border-left: 4px solid #0d6efd;*/
+}
+.badge {
+    font-size: 0.9rem;
+}
+.table-borderless td, .table-borderless th {
+    padding: 0.5rem 0;
+}
