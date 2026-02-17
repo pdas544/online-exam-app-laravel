@@ -16,18 +16,14 @@
                     </ol>
                 </nav>
             </div>
-            @section('header-buttons-right')
+
             <div class="d-flex justify-content-end align-items-center m-2">
                 <a href="{{ route('users.create') }}" class="btn btn-primary me-2">
                     <i class="bi bi-plus-circle"></i> Add User
                 </a>
                 <a href="{{ route('admin.dashboard') }}" class="btn btn-outline-secondary me-2">Dashboard</a>
-                <form method="POST" action="{{ route('logout') }}" class="d-inline">
-                    @csrf
-                    <button type="submit" class="btn btn-outline-danger">Logout</button>
-                </form>
+
             </div>
-            @endsection
 
         </div>
 

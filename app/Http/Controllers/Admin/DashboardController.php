@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Exam;
+use App\Models\Question;
+use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Http\Request;
 use App\Http\Middleware\RoleMiddleware;
@@ -26,6 +29,9 @@ class DashboardController extends Controller
             'total_students' => User::where('role', 'student')->count(),
             'total_teachers' => User::where('role', 'teacher')->count(),
             'total_admins' => User::where('role', 'admin')->count(),
+            'total_subjects' => Subject::count(),
+            'total_questions' => Question::count(),
+            'total_exams' => Exam::count(),
         ];
 
         return view('admin.dashboard', compact('stats'));

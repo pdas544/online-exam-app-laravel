@@ -1,4 +1,4 @@
-@extends('layouts.app.main')
+@extends('layouts.app')
 
 @section('title', 'Register - Online Exam System')
 

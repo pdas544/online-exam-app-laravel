@@ -17,7 +17,7 @@
     @endif
     <div class="d-flex justify-content-between align-items-center m-3">
         <div>
-            <h1 class="h3">Subject Management</h1>
+            <h1 class="display-5 mx-auto">Question Management</h1>
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
@@ -25,19 +25,21 @@
                     <li class="breadcrumb-item active">Questions</li>
                 </ol>
             </nav>
+
         </div>
 
+            <div>
 
-        @section('header-buttons-right')
-            <div class="d-flex justify-content-end m-3">
                 <a href="{{ route('questions.create') }}" class="btn btn-primary">
                     <i class="bi bi-plus-circle"></i> Add a Question
                 </a>
+
             </div>
-        @endsection
+
 
 
     </div>
+
     <div class="card">
         <div class="card-body">
             <!-- Filters -->

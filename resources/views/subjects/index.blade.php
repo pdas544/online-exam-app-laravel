@@ -17,13 +17,12 @@
         </div>
 
 
-        @section('header-buttons-right')
-            <div class="d-flex justify-content-end m-3">
+            <div class="">
                 <a href="{{ route('subjects.create') }}" class="btn btn-primary">
                     <i class="bi bi-plus-circle"></i> Add Subject
                 </a>
             </div>
-        @endsection
+
 
 
     </div>

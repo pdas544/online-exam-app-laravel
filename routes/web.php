@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ExamController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\UserController;
@@ -42,5 +43,20 @@ Route::middleware(['auth'])->group(function () {
     // Optional: Bulk import route
     Route::get('questions/import', [QuestionController::class, 'import'])
         ->name('questions.import');
+
+    // Exam management routes
+    Route::middleware(['auth'])->group(function () {
+        Route::resource('exams', ExamController::class);
+
+        // Exam Question Management Routes
+        Route::get('/exams/{exam}/questions', [ExamController::class, 'manageQuestions'])->name('exams.questions');
+        Route::post('/exams/{exam}/questions', [ExamController::class, 'addQuestion'])->name('exams.questions.add');
+        Route::post('/exams/{exam}/questions/bulk', [ExamController::class, 'bulkAddQuestions'])->name('exams.questions.bulk');
+        Route::delete('/exams/{exam}/questions/{question}', [ExamController::class, 'removeQuestion'])->name('exams.questions.remove');
+
+        // AJAX Routes for dynamic updates
+        Route::post('/exams/{exam}/questions/reorder', [ExamController::class, 'reorderQuestions'])->name('exams.questions.reorder');
+        Route::put('/exams/{exam}/questions/{question}/points', [ExamController::class, 'updatePoints'])->name('exams.questions.points');
+    });
 
 });

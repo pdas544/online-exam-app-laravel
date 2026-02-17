@@ -70,9 +70,8 @@
 
 <main class="p-2">
 
-        @yield('header-buttons-right')
-
     @yield('content')
+
 </main>
 
 @yield('scripts')
