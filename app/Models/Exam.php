@@ -94,9 +94,11 @@ class Exam extends Model
 
     public function calculateTotalMarks()
     {
-        return $this->questions->sum(function ($question) {
-            return $question->getPointsForExam($this->id);
-        });
+        return $this->questions()
+            ->get()
+            ->sum(function ($question) {
+                return $question->getPointsForExam($this->id);
+            });
     }
 
     public function updateTotalMarks()

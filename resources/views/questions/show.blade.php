@@ -10,9 +10,9 @@
             <!-- Question Card -->
             <div class="card mb-4">
                 <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>Question</h5>
+                    <h5 class="mb-0"><i class="bi bi-question-circle me-2"></i>Question</h5>
                     <span class="badge bg-light text-dark p-2">
-                    <i class="fas fa-star me-1"></i> {{ $question->points }} Points
+                    <i class="bi bi-star me-1"></i> {{ $question->points }} Points
                 </span>
                 </div>
                 <div class="card-body">
@@ -182,7 +182,7 @@
             <!-- Usage in Exams -->
             <div class="card mb-4">
                 <div class="card-header bg-info text-white">
-                    <h5 class="mb-0"><i class="fas fa-file-alt me-2"></i>Used in Exams</h5>
+                    <h5 class="mb-0"><i class="bi bi-file-alt me-2"></i>Used in Exams</h5>
                 </div>
                 <div class="card-body">
                     @if($question->exams->count() > 0)
@@ -207,7 +207,7 @@
                                         </span>
                                         </td>
                                         <td>
-                                            <a href="#" class="btn btn-sm btn-outline-info">
+                                            <a href="{{route('exams.show',$exam->id)}}" class="btn btn-sm btn-outline-info">
                                                 <i class="bi bi-eye"></i>
                                             </a>
                                         </td>
@@ -218,7 +218,7 @@
                         </div>
                     @else
                         <p class="text-muted mb-0">
-                            <i class="fas fa-info-circle me-2"></i>
+                            <i class="bi bi-info-circle me-2"></i>
                             This question is not used in any exams yet.
                         </p>
                     @endif
@@ -325,13 +325,13 @@
                 <div class="modal-body">
                     <p>Are you sure you want to delete this question?</p>
                     <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <i class="bi bi-exclamation-triangle me-2"></i>
                         <strong>{{ Str::limit($question->question_text, 100) }}</strong>
                     </div>
 
                     @if($question->exams->count() > 0)
                         <div class="alert alert-danger">
-                            <i class="fas fa-ban me-2"></i>
+                            <i class="bi bi-ban me-2"></i>
                             This question is used in <strong>{{ $question->exams->count() }} exam(s)</strong>.
                             Deleting it will remove it from those exams.
                         </div>
@@ -382,7 +382,7 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-success">
-                            <i class="fas fa-copy"></i> Create Duplicate
+                            <i class="bi bi-copy"></i> Create Duplicate
                         </button>
                     </div>
                 </form>

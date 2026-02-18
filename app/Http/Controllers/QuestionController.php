@@ -47,7 +47,7 @@ class QuestionController extends Controller
             $query->where('question_text', 'like', '%' . $request->search . '%');
         }
 
-        $questions = $query->latest()->paginate(15);
+        $questions = $query->latest()->paginate(15)->withQueryString();
         $subjectQuery = Subject::query();
         if(!$user->isAdmin()){
             $subjectQuery->forTeacher($user->id);

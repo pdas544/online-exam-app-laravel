@@ -116,13 +116,13 @@
                             </td>
                             <td>
                             <span class="badge bg-light text-dark">
-                                <i class="fas fa-book me-1"></i>
+                                <i class="bi bi-book me-1"></i>
                                 {{ $exam->subject->name }}
                             </span>
                             </td>
                             <td>
                             <span class="badge bg-secondary">
-                                <i class="fas fa-clock me-1"></i>
+                                <i class="bi bi-clock me-1"></i>
                                 {{ $exam->semester }}
                             </span>
                             </td>
@@ -175,7 +175,7 @@
                                             <div class="modal-body">
                                                 <p>Are you sure you want to delete this exam?</p>
                                                 <div class="alert alert-warning">
-                                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                                    <i class="bi bi-exclamation-triangle me-2"></i>
                                                     <strong>{{ $exam->title }}</strong>
                                                 </div>
                                                 <p class="text-muted small">
@@ -201,11 +201,11 @@
                         <tr>
                             <td colspan="9" class="text-center py-5">
                                 <div class="text-muted">
-                                    <i class="fas fa-file-alt fa-4x mb-3"></i>
+                                    <i class="bi bi-file-alt fa-4x mb-3"></i>
                                     <h5>No Exams Found</h5>
                                     <p>Get started by creating your first exam.</p>
                                     <a href="{{ route('exams.create') }}" class="btn btn-primary">
-                                        <i class="fas fa-plus"></i> Create Exam
+                                        <i class="bi bi-plus"></i> Create Exam
                                     </a>
                                 </div>
                             </td>

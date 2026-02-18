@@ -3,44 +3,56 @@
 @section('title', 'Edit Exam')
 @section('page-title', 'Edit Exam: ' . $exam->title)
 
-{{--@section('header-buttons')--}}
-{{--    <a href="{{ route('exams.index') }}" class="btn btn-outline-secondary me-2">--}}
-{{--        <i class="fas fa-arrow-left"></i> Back to Exams--}}
-{{--    </a>--}}
-{{--    <a href="{{ route('exams.show', $exam) }}" class="btn btn-info me-2">--}}
-{{--        <i class="fas fa-eye"></i> View--}}
-{{--    </a>--}}
-{{--    <a href="{{ route('exams.questions', $exam) }}" class="btn btn-primary">--}}
-{{--        <i class="fas fa-list"></i> Manage Questions--}}
-{{--    </a>--}}
-{{--@endsection--}}
 
 @section('content')
     <div class="row justify-content-center">
         <div class="col-md-10">
             <div class="card">
                 <div class="card-header bg-warning">
-                    <h5 class="mb-0"><i class="fas fa-edit me-2"></i>Edit Exam #{{ $exam->id }}</h5>
+                    <h5 class="mb-0"><i class="bi bi-pencil me-2"></i>Edit Exam #{{ $exam->id }}</h5>
                 </div>
                 <div class="card-body">
+                    @if(session('success'))
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <i class="bi bi-check-circle me-2"></i> {{ session('success') }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    @endif
+
+                    @if(session('error'))
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="bi bi-exclamation-triangle me-2"></i> {{ session('error') }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    @endif
+
+                    @if($errors->any())
+                        <div class="alert alert-danger">
+                            <ul class="mb-0">
+                                @foreach($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
                     <form method="POST" action="{{ route('exams.update', $exam) }}">
                         @csrf
                         @method('PUT')
 
                         <!-- Basic Information -->
                         <div class="row mb-3">
-                            <div class="col-md-8">
+                            <div class="col-md-4">
                                 <div class="mb-3">
                                     <label for="title" class="form-label">Exam Title *</label>
                                     <input type="text" class="form-control @error('title') is-invalid @enderror"
                                            id="title" name="title" value="{{ old('title', $exam->title) }}"
-                                           placeholder="e.g., Mid Term Examination 2024" required>
+                                           required>
                                     @error('title')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="mb-3">
                                     <label for="subject_id" class="form-label">Subject *</label>
                                     <select class="form-select @error('subject_id') is-invalid @enderror"
@@ -54,6 +66,26 @@
                                         @endforeach
                                     </select>
                                     @error('subject_id')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label for="academic_year" class="form-label">Academic Year</label>
+                                    <input type="text" name="academic_year" id="academic_year" class="form-control @error('academic_year') is-invalid @enderror"
+                                           value="{{ old('academic_year', $exam->academic_year) }}">
+                                    @error('academic_year')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="mb-3">
+                                    <label for="semester" class="form-label">Semester</label>
+                                    <input type="text" id="semester" name="semester" class="form-control @error('semester') is-invalid @enderror"
+                                           value="{{ old('semester', $exam->semester) }}">
+                                    @error('semester')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
                                 </div>
@@ -110,7 +142,7 @@
 
                         <!-- Total Marks Display -->
                         <div class="alert alert-info mb-3">
-                            <i class="fas fa-calculator me-2"></i>
+                            <i class="bi bi-calculator me-2"></i>
                             <strong>Total Marks:</strong> {{ $exam->total_marks }}
                             (calculated from {{ $exam->questions->count() }} questions)
                         </div>
@@ -197,7 +229,7 @@
 
                             <div class="col-md-6">
                                 <div class="alert alert-warning h-100 d-flex align-items-center">
-                                    <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+                                    <i class="bi bi-exclamation-triangle fa-2x me-3"></i>
                                     <div>
                                         <strong>Important:</strong> Changes to published exams will affect students immediately.
                                         Consider creating a new version for major changes.
@@ -211,7 +243,7 @@
                                 Cancel
                             </a>
                             <button type="submit" class="btn btn-warning">
-                                <i class="fas fa-save"></i> Update Exam
+                                <i class="bi bi-save"></i> Update Exam
                             </button>
                         </div>
                     </form>

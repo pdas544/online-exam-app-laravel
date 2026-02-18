@@ -1,0 +1,27 @@
+.question-item {
+    transition: background-color 0.2s;
+}
+.question-item:hover {
+    background-color: #f8f9fa;
+}
+.drag-handle {
+    cursor: move !important;
+    user-select: none;
+}
+.question-item.dragging {
+    opacity: 0.5;
+    border: 2px dashed #007bff;
+}
+.question-item.drag-over {
+    border-top: 2px solid #007bff;
+}
+#available-questions .card {
+    transition: transform 0.2s;
+}
+#available-questions .card:hover {
+    transform: translateX(5px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.points-input {
+    width: 70px;
+}

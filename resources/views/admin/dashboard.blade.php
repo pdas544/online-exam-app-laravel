@@ -105,6 +105,7 @@
                         <a href="{{ route('users.index') }}" class="btn btn-primary me-2">Manage Users</a>
                         <a href="{{ route('subjects.index') }}" class="btn btn-info me-2">Manage Subjects</a>
                         <a href="{{ route('questions.index') }}" class="btn btn-warning me-2">Manage Questions</a>
+                        <a href="{{ route('exams.index') }}" class="btn btn-danger me-2">Manage Exams</a>
                         <a href="{{ route('users.create') }}" class="btn btn-success">Add New User</a>
                         <a href="{{ route('home') }}" class="btn btn-outline-secondary ms-2">Back to Home</a>
                     </div>

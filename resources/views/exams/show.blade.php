@@ -3,19 +3,18 @@
 @section('title', 'Exam Details')
 @section('page-title', 'Exam: ' . $exam->title)
 
-{{--@section('header-buttons')--}}
-{{--    <a href="{{ route('exams.index') }}" class="btn btn-outline-secondary me-2">--}}
-{{--        <i class="bi bi-arrow-left"></i> Back to Exams--}}
-{{--    </a>--}}
-{{--    <a href="{{ route('exams.edit', $exam) }}" class="btn btn-warning me-2">--}}
-{{--        <i class="bi bi-edit"></i> Edit--}}
-{{--    </a>--}}
-{{--    <a href="{{ route('exams.questions', $exam) }}" class="btn btn-primary">--}}
-{{--        <i class="bi bi-list"></i> Manage Questions--}}
-{{--    </a>--}}
-{{--@endsection--}}
 
 @section('content')
+    @if(session('success'))
+        <div class="alert alert-success m-3">
+            {{ session('success') }}
+        </div>
+    @endif
+    @if(session('error'))
+        <div class="alert alert-danger m-3">
+            {{ session('error') }}
+        </div>
+    @endif
     <div class="row">
         <!-- Main Content - Exam Details -->
         <div class="col-md-8">
@@ -193,12 +192,12 @@
                                                     <i class="bi bi-eye"></i>
                                                 </a>
                                                 <button type="button"
-                                                        class="btn btn-warning btn-edit-points"
+                                                        class="btn btn-warning btn-edit-points ms-1"
                                                         data-question-id="{{ $question->id }}"
                                                         data-question-text="{{ Str::limit($question->question_text, 30) }}"
                                                         data-current-points="{{ $question->pivot->points_override ?? $question->points }}"
                                                         title="Edit Points">
-                                                    <i class="bi bi-edit"></i>
+                                                    <i class="bi bi-pencil"></i>
                                                 </button>
                                             </div>
                                         </td>
@@ -233,7 +232,7 @@
             <!-- Statistics Card -->
             <div class="card mb-4">
                 <div class="card-header bg-secondary text-white">
-                    <h5 class="mb-0"><i class="bi bi-chart-bar me-2"></i>Statistics</h5>
+                    <h5 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Statistics</h5>
                 </div>
                 <div class="card-body">
                     <div class="row text-center">
@@ -276,7 +275,7 @@
             <!-- Quick Actions Card -->
             <div class="card">
                 <div class="card-header bg-warning">
-                    <h5 class="mb-0"><i class="bi bi-bolt me-2"></i>Quick Actions</h5>
+                    <h5 class="mb-0"><i class="bi bi-lightning me-2"></i>Quick Actions</h5>
                 </div>
                 <div class="card-body">
                     <div class="d-grid gap-2">
@@ -321,18 +320,21 @@
                             <div class="card-body">
                                 <p class="mb-3">{{ $question->question_text }}</p>
 
-                                @if($question->isMultipleChoice())
-                                    <div class="ms-3">
-                                        @foreach($question->options as $letter => $option)
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input" type="radio" disabled>
-                                                <label class="form-check-label">
-                                                    <strong>{{ $letter }}.</strong> {{ $option }}
-                                                </label>
-                                            </div>
-                                        @endforeach
-                                    </div>
-                                @elseif($question->isTrueFalse())
+                                @if(in_array($question->question_type, ['mcq_single', 'mcq_multiple']))
+                                    {{-- Check if options exist and is an array --}}
+                                    @if(is_array($question->options) || is_object($question->options))
+                                        <div class="ms-3">
+                                            @foreach($question->options as $letter => $option)
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="radio" disabled>
+                                                    <label class="form-check-label">
+                                                        <strong>{{ $letter }}.</strong> {{ $option }}
+                                                    </label>
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                @elseif($question->question_type === 'true_false')
                                     <div class="ms-3">
                                         <div class="form-check mb-2">
                                             <input class="form-check-input" type="radio" disabled>
@@ -343,7 +345,7 @@
                                             <label class="form-check-label">False</label>
                                         </div>
                                     </div>
-                                @elseif($question->isFillInBlank())
+                                @elseif($question->question_type === 'fill_blank')
                                     <div class="ms-3">
                                         <input type="text" class="form-control" placeholder="Your answer" disabled>
                                     </div>
@@ -437,9 +439,6 @@
                     const questionText = this.dataset.questionText;
                     const currentPoints = this.dataset.currentPoints;
 
-                    // For simplicity, you'll need to set the form action URL dynamically
-                    // This would require a route like: exams.questions.points.update
-                    // pointsForm.action = `/exams/{{ $exam->id }}/questions/${questionId}/points`;
 
                     questionTextDisplay.textContent = questionText;
                     pointsInput.value = currentPoints;

@@ -45,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const oldCorrect = normalizeCorrect(safeJsonParse(root.dataset.oldCorrect || '[]'));
 
   const state = {
-      ype: typeSelect.value || root.dataset.questionType || '',
+      type: typeSelect.value || root.dataset.questionType || '',
       optionCount: Math.max(4, oldOptions.length || 0),
   };
 

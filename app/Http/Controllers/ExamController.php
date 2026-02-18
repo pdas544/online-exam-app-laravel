@@ -178,7 +178,9 @@ class ExamController extends Controller
      */
     public function manageQuestions(Exam $exam)
     {
-        $this->authorizeExam($exam);
+        if(!$this->authorizeExam($exam)){
+            abort(403, 'Unauthorized access to this exam.');
+        }
 
         $exam->load(['questions' => function ($query) {
             $query->orderBy('exam_questions.order_index');
@@ -373,9 +375,13 @@ class ExamController extends Controller
     /**
      * Authorize that user can access/modify this exam.
      */
-    private function authorizeExam(Exam $exam)
+    private function authorizeExam(Exam $exam): bool
     {
         $user = Auth::user();
+
+        if (!$user) {
+            abort(403, 'Unauthenticated.');
+        }
 
         if ($user->isAdmin()) {
             return true;
