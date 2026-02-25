@@ -29,6 +29,28 @@
             {{ session('info') }}
         </div>
     @endif
+    <div class="d-flex justify-content-between align-items-center m-3">
+        <div>
+            <h1 class="h3">Exam Questions Management</h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{{ route('admin.dashboard') }}">Admin Dashboard</a></li>
+                    <li class="breadcrumb-item active">Add Questions to the Exam</li>
+                </ol>
+            </nav>
+        </div>
+
+
+            <div class="">
+
+                <a href="{{ route('exams.show',$exam->id) }}" class="btn btn-primary">
+                    <i class="bi bi-eye"></i> View Exam
+                </a>
+            </div>
+
+
+    </div>
 
     @php
         $examQuestionsConfig = [

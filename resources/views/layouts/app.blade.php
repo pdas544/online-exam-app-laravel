@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Online Exam System')</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
@@ -41,8 +42,8 @@
                                 <li><hr class="dropdown-divider"></li>
                             @else
                                 <li><a class="dropdown-item" href="{{ route('admin.dashboard') }}">Student Dashboard</a></li>
-                                <li><a class="dropdown-item" href="{{ route('exams.available') }}">Available Exams</a></li>
-                                <li><a class="dropdown-item" href="{{ route('results.index') }}">My Results</a></li>
+                                <li><a class="dropdown-item" href="">Available Exams</a></li>
+                                <li><a class="dropdown-item" href="">My Results</a></li>
                                 <li><hr class="dropdown-divider"></li>
                             @endif
                             <li>
@@ -74,7 +75,8 @@
 
 </main>
 
-@yield('scripts')
+
+@stack('scripts')
 </body>
 </html>
 

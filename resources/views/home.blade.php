@@ -44,11 +44,11 @@
                                     </div>
                                 @elseif(auth()->user()->isTeacher())
                                     <div class="mt-3">
-                                        <a href="#" class="btn btn-primary">Teacher Dashboard</a>
+                                        <a href="{{route('teacher.dashboard')}}" class="btn btn-primary">Teacher Dashboard</a>
                                     </div>
                                 @else
                                     <div class="mt-3">
-                                        <a href="#" class="btn btn-primary">Student Dashboard</a>
+                                        <a href="{{route('student.dashboard')}}" class="btn btn-primary">Student Dashboard</a>
                                     </div>
                                 @endif
                             </div>
