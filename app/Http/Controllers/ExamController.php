@@ -58,11 +58,11 @@ class ExamController extends Controller
         }
 
         // Search by academic year or semester
-        if ($request->filled('academic_year') ) {
-            $search = $request->search;
-            $query->where('academic_year', $search)
-                ->orWhere('semester', $search);
-
+        if ($request->filled('academic_year')) {
+            $query->where('academic_year', $request->academic_year);
+        }
+        if ($request->filled('semester')) {
+            $query->where('semester', $request->semester);
         }
 
         // Get count of questions for each exam
