@@ -113,6 +113,32 @@ class ExamSessionController extends Controller
     }
 
     /**
+     * Mark exam attempt as actually begun (after lobby proceed)
+     */
+    public function begin(ExamSession $session)
+    {
+        $this->authorizeSession($session);
+
+        if (in_array($session->status, ['completed', 'terminated', 'expired'], true)) {
+            return response()->json(['error' => 'Exam session is no longer active.'], 400);
+        }
+
+        if (!$session->started_at) {
+            $session->update([
+                'status' => 'in_progress',
+                'started_at' => now(),
+                'last_activity_at' => now(),
+                'remaining_time' => $session->remaining_time ?? ($session->exam->time_limit * 60),
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'time_remaining' => $this->calculateTimeRemaining($session->fresh()),
+        ]);
+    }
+
+    /**
      * Save answer (AJAX endpoint)
      */
     public function saveAnswer(Request $request, ExamSession $session)
@@ -129,9 +155,11 @@ class ExamSessionController extends Controller
             ->where('question_id', $request->question_id)
             ->firstOrFail();
 
+        $normalizedAnswer = $this->normalizeAnswer($request->answer);
+
         $answer->update([
-            'answer' => $request->answer,
-            'is_answered' => $request->answer !== null && $request->answer !== '',
+            'answer' => $normalizedAnswer,
+            'is_answered' => $this->isAnsweredValue($normalizedAnswer),
             'is_marked_for_review' => $request->is_marked_for_review ?? $answer->is_marked_for_review,
             'answered_at' => now(),
         ]);
@@ -160,19 +188,54 @@ class ExamSessionController extends Controller
                 return response()->json(['error' => 'Exam already submitted'], 400);
             }
 
+            $request->validate([
+                'answers' => 'nullable|array',
+                'remaining_time' => 'nullable|integer|min:0',
+            ]);
+
             DB::beginTransaction();
 
             try {
-                // Calculate time spent in seconds (ensure positive integer)
-                $timeSpent = $session->started_at 
-                    ? abs((int) $session->started_at->diffInSeconds(now(), false))
-                    : 0;
+                // Persist latest client-side timer snapshot before completing the session.
+                if ($request->filled('remaining_time')) {
+                    $session->remaining_time = max(0, (int) $request->input('remaining_time'));
+                }
+
+                // Persist all unsaved answers from client payload before grading.
+                $submittedAnswers = $request->input('answers', []);
+                if (is_array($submittedAnswers) && !empty($submittedAnswers)) {
+                    foreach ($submittedAnswers as $questionId => $rawAnswer) {
+                        $answerRow = StudentAnswer::where('exam_session_id', $session->id)
+                            ->where('question_id', (int) $questionId)
+                            ->first();
+
+                        if (!$answerRow) {
+                            continue;
+                        }
+
+                        $normalizedAnswer = $this->normalizeAnswer($rawAnswer);
+                        $answerRow->update([
+                            'answer' => $normalizedAnswer,
+                            'is_answered' => $this->isAnsweredValue($normalizedAnswer),
+                            'answered_at' => now(),
+                        ]);
+                    }
+                }
+
+                $timeRemainingAtSubmit = $request->filled('remaining_time')
+                    ? max(0, (int) $request->input('remaining_time'))
+                    : $this->calculateTimeRemaining($session->fresh());
+
+                $examDurationSeconds = (int) ($session->exam->time_limit * 60);
+                $timeSpent = max(0, $examDurationSeconds - $timeRemainingAtSubmit);
 
                 // Update session first
                 $session->update([
                     'status' => 'completed',
                     'submitted_at' => now(),
                     'time_spent' => $timeSpent,
+                    'remaining_time' => $timeRemainingAtSubmit,
+                    'last_activity_at' => now(),
                 ]);
 
                 // Auto-grade all answers
@@ -273,8 +336,14 @@ class ExamSessionController extends Controller
         // Pause session on focus-loss type violations
         $focusLossTypes = ['tab_switch', 'window_blur', 'fullscreen_exit', 'tab_key'];
         if (in_array($request->type, $focusLossTypes, true) && $session->status === 'in_progress') {
+            $remainingFromClient = data_get($request->metadata, 'remaining_time');
+            $remaining = is_numeric($remainingFromClient)
+                ? max(0, (int) $remainingFromClient)
+                : $this->calculateTimeRemaining($session);
+
             $session->update([
                 'status' => 'paused',
+                'remaining_time' => $remaining,
                 'last_activity_at' => now(),
             ]);
         }
@@ -319,21 +388,110 @@ class ExamSessionController extends Controller
         ]);
     }
 
+    /**
+     * Sync client timer state (used during pause/resume and periodic heartbeat)
+     */
+    public function syncTimer(Request $request, ExamSession $session)
+    {
+        $this->authorizeSession($session);
+
+        if (in_array($session->status, ['completed', 'terminated', 'expired'], true)) {
+            return response()->json(['success' => true]);
+        }
+
+        $data = $request->validate([
+            'remaining_time' => 'required|integer|min:0',
+            'status' => 'nullable|in:in_progress,paused',
+        ]);
+
+        $update = [
+            'remaining_time' => (int) $data['remaining_time'],
+            'last_activity_at' => now(),
+        ];
+
+        if (!empty($data['status']) && in_array($session->status, ['scheduled', 'in_progress', 'paused'], true)) {
+            $update['status'] = $data['status'];
+            if ($data['status'] === 'in_progress' && !$session->started_at) {
+                $update['started_at'] = now();
+            }
+        }
+
+        $session->update($update);
+
+        return response()->json([
+            'success' => true,
+            'time_remaining' => $this->calculateTimeRemaining($session->fresh()),
+        ]);
+    }
+
 
     /**
      * Calculate time remaining
      */
     private function calculateTimeRemaining(ExamSession $session)
     {
+        $total = (int) ($session->exam->time_limit * 60);
+
+        if ($session->status === 'paused') {
+            if ($session->remaining_time !== null) {
+                return max(0, (int) $session->remaining_time);
+            }
+
+            if (!$session->started_at) {
+                return $total;
+            }
+
+            $elapsed = now()->diffInSeconds($session->started_at);
+            return max(0, $total - $elapsed);
+        }
+
+        if ($session->remaining_time !== null && $session->status === 'in_progress') {
+            $anchor = $session->last_activity_at ?? $session->started_at ?? now();
+            $elapsedSinceAnchor = now()->diffInSeconds($anchor);
+            return max(0, (int) $session->remaining_time - $elapsedSinceAnchor);
+        }
+
         if (!$session->started_at) {
-            return $session->exam->time_limit * 60;
+            return $session->remaining_time !== null ? max(0, (int) $session->remaining_time) : $total;
         }
 
         $elapsed = now()->diffInSeconds($session->started_at);
-        $total = $session->exam->time_limit * 60;
         $remaining = $total - $elapsed;
 
         return max(0, $remaining);
+    }
+
+    private function normalizeAnswer($answer)
+    {
+        if (is_array($answer)) {
+            return array_values(array_filter($answer, static function ($value) {
+                return $value !== null && $value !== '';
+            }));
+        }
+
+        if ($answer === null) {
+            return null;
+        }
+
+        if (is_string($answer)) {
+            $trimmed = trim($answer);
+            return $trimmed === '' ? null : $trimmed;
+        }
+
+        return $answer;
+    }
+
+    private function isAnsweredValue($answer): bool
+    {
+        if (is_array($answer)) {
+            return count($answer) > 0;
+        }
+
+        if (is_string($answer)) {
+            return trim($answer) !== '';
+        }
+
+        return $answer !== null;
     }
 
     /**

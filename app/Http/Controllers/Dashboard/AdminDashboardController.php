@@ -103,7 +103,19 @@ class AdminDashboardController extends BaseDashboardController
         $stats = $this->getStats();
         $quickActions = $this->getQuickActions();
         $recentActivity = $this->getRecentActivity();
-        return view('dashboard.admin.index', compact('stats', 'quickActions', 'recentActivity'));
+
+        $activeSessions = ExamSession::with(['exam:id,title', 'student:id,name,email'])
+            ->whereIn('status', ['in_progress', 'paused'])
+            ->latest('started_at')
+            ->limit(25)
+            ->get();
+
+        $sessionCounts = [
+            'in_progress' => $activeSessions->where('status', 'in_progress')->count(),
+            'paused'      => $activeSessions->where('status', 'paused')->count(),
+        ];
+
+        return view('dashboard.admin.index', compact('stats', 'quickActions', 'recentActivity', 'activeSessions', 'sessionCounts'));
     }
     public function activeSessions(Request $request)
     {

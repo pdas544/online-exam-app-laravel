@@ -116,7 +116,8 @@ class LiveMonitoringController extends Controller
         foreach ($sessions as $session) {
             $session->update([
                 'status' => 'in_progress',
-                'started_at' => now(),
+                'started_at' => $session->started_at,
+                'remaining_time' => $session->remaining_time ?? ($session->exam->time_limit * 60),
                 'last_activity_at' => now(),
             ]);
 

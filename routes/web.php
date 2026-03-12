@@ -82,10 +82,12 @@ Route::middleware(['auth'])->group(function () {
 // Exam Taking Routes
 Route::middleware(['auth'])->group(function () {
     Route::get('/exam/{exam}/start', [ExamSessionController::class, 'start'])->name('exam.start');
+    Route::post('/exam/session/{session}/begin', [ExamSessionController::class, 'begin'])->name('exam.session.begin');
     Route::get('/exam/session/{session}/take', [ExamSessionController::class, 'take'])->name('exam.session.take');
     Route::get('/exam/session/{session}/resume', [ExamSessionController::class, 'resume'])->name('exam.session.resume');
     Route::post('/exam/session/{session}/answer', [ExamSessionController::class, 'saveAnswer'])->name('exam.session.answer');
     Route::post('/exam/session/{session}/submit', [ExamSessionController::class, 'submit'])->name('exam.session.submit');
+    Route::post('/exam/session/{session}/timer', [ExamSessionController::class, 'syncTimer'])->name('exam.session.timer');
     Route::post('/exam/session/{session}/violation', [ExamSessionController::class, 'logViolation'])->name('exam.session.violation');
     Route::get('/exam/session/{session}/status', [ExamSessionController::class, 'status'])->name('exam.session.status');
     Route::get('/exam/session/{session}/result', [ExamSessionController::class, 'result'])->name('exam.session.result');

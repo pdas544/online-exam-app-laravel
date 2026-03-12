@@ -72,25 +72,45 @@ class StudentAnswer extends Model
             return;
         }
 
-        $correctAnswers = $this->question->correct_answers;
+        $correctAnswers = (array) ($this->question->correct_answers ?? []);
         $studentAnswer = $this->answer;
+
+        $studentAnswers = is_array($studentAnswer)
+            ? $studentAnswer
+            : ($studentAnswer === null ? [] : [$studentAnswer]);
+
+        $studentAnswers = array_values(array_filter($studentAnswers, static function ($value) {
+            return $value !== null && $value !== '';
+        }));
+
+        $normalizedCorrect = array_values(array_filter($correctAnswers, static function ($value) {
+            return $value !== null && $value !== '';
+        }));
 
         switch ($this->question->question_type) {
             case 'mcq_single':
             case 'true_false':
-                $this->is_correct = $studentAnswer === $correctAnswers[0] ?? null;
+                $studentValue = isset($studentAnswers[0]) ? (string) $studentAnswers[0] : null;
+                $correctValue = isset($normalizedCorrect[0]) ? (string) $normalizedCorrect[0] : null;
+                $this->is_correct = $studentValue !== null && $correctValue !== null && $studentValue === $correctValue;
                 break;
 
             case 'mcq_multiple':
-                sort($studentAnswer);
-                sort($correctAnswers);
-                $this->is_correct = $studentAnswer == $correctAnswers;
+                sort($studentAnswers);
+                sort($normalizedCorrect);
+                $this->is_correct = $studentAnswers == $normalizedCorrect;
                 break;
 
             case 'fill_blank':
-                $studentAnswer = trim(strtolower($studentAnswer ?? ''));
-                $correctAnswers = array_map('strtolower', $correctAnswers);
-                $this->is_correct = in_array($studentAnswer, $correctAnswers);
+                $studentValue = strtolower(trim((string) ($studentAnswers[0] ?? '')));
+                $normalizedCorrect = array_map(static function ($answer) {
+                    return strtolower(trim((string) $answer));
+                }, $normalizedCorrect);
+                $this->is_correct = $studentValue !== '' && in_array($studentValue, $normalizedCorrect, true);
+                break;
+
+            default:
+                $this->is_correct = false;
                 break;
         }
 
