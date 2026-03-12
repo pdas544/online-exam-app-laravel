@@ -6,9 +6,9 @@ use App\Models\Exam;
 use App\Models\ExamSession;
 use App\Models\StudentAnswer;
 use App\Models\Question;
-use App\Events\ExamStarted;
 use App\Events\ExamEnded;
 use App\Events\AnswerSaved;
+use App\Events\StudentJoined;
 use App\Events\ViolationDetected;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -34,11 +34,11 @@ class ExamSessionController extends Controller
         // Check if student has already attempted
         $existingSession = ExamSession::where('exam_id', $exam->id)
             ->where('student_id', Auth::id())
-            ->whereIn('status', ['in_progress', 'completed'])
+            ->whereIn('status', ['scheduled', 'in_progress', 'paused', 'completed'])
             ->first();
 
         if ($existingSession) {
-            if ($existingSession->status === 'in_progress') {
+            if (in_array($existingSession->status, ['scheduled', 'in_progress', 'paused'], true)) {
                 return redirect()->route('exam.session.resume', $existingSession);
             }
             return back()->with('error', 'You have already completed this exam.');
@@ -53,8 +53,8 @@ class ExamSessionController extends Controller
                 'exam_id' => $exam->id,
                 'student_id' => Auth::id(),
                 'teacher_id' => $exam->teacher_id,
-                'status' => 'in_progress',
-                'started_at' => now(),
+                'status' => 'scheduled',
+                'started_at' => null,
                 'total_questions' => $questions->count(),
                 'ip_address' => request()->ip(),
                 'user_agent' => request()->userAgent(),
@@ -72,8 +72,8 @@ class ExamSessionController extends Controller
 
             DB::commit();
 
-            // Broadcast event
-            broadcast(new ExamStarted($session))->toOthers();
+            $session->loadMissing('student');
+            broadcast(new StudentJoined($session));
 
             return redirect()->route('exam.session.take', $session);
 
@@ -104,7 +104,7 @@ class ExamSessionController extends Controller
     {
         $this->authorizeSession($session);
 
-        if ($session->status !== 'in_progress') {
+        if (!in_array($session->status, ['scheduled', 'in_progress', 'paused'], true)) {
             return redirect()->route('dashboard')
                 ->with('error', 'This exam session cannot be resumed.');
         }
@@ -200,6 +200,9 @@ class ExamSessionController extends Controller
                 ]);
 
                 DB::commit();
+
+                $session->loadMissing('student');
+                broadcast(new ExamEnded($session, 'completed'));
 
                 // Return success response
                 if ($request->wantsJson()) {
@@ -348,6 +351,7 @@ class ExamSessionController extends Controller
         ]);
 
         broadcast(new ExamEnded($session, 'terminated_by_teacher'))->toOthers();
+        broadcast(new \App\Events\ExamForceEnded($session))->toOthers();
 
         return back()->with('success', 'Exam session terminated.');
     }

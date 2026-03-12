@@ -11,17 +11,6 @@ use Illuminate\Support\Facades\Auth;
 
 class LiveMonitoringController extends Controller
 {
-    public function __construct()
-    {
-        $this->middleware('auth');
-        $this->middleware(function ($request, $next) {
-            if (!Auth::user()->isTeacher() && !Auth::user()->isAdmin()) {
-                abort(403);
-            }
-            return $next($request);
-        });
-    }
-
     /**
      * Show live monitoring dashboard
      */
@@ -31,14 +20,14 @@ class LiveMonitoringController extends Controller
 
         $activeExams = Exam::where('teacher_id', $teacherId)
             ->whereHas('sessions', function($q) {
-                $q->where('status', 'in_progress');
+                $q->whereIn('status', ['scheduled', 'in_progress', 'paused']);
             })
             ->withCount(['sessions' => function($q) {
-                $q->where('status', 'in_progress');
+                $q->whereIn('status', ['scheduled', 'in_progress', 'paused']);
             }])
             ->get();
 
-        return view('teacher.monitoring.index', compact('activeExams'));
+        return view('dashboard.teacher.monitoring.index', compact('activeExams'));
     }
 
     /**
@@ -52,10 +41,16 @@ class LiveMonitoringController extends Controller
 
         $sessions = $exam->sessions()
             ->with('student')
-            ->where('status', 'in_progress')
+            ->withCount([
+                'answers as answered_answers_count' => function ($query) {
+                    $query->where('is_answered', true);
+                },
+            ])
+            ->whereIn('status', ['scheduled', 'in_progress', 'paused', 'completed', 'terminated'])
+            ->latest('updated_at')
             ->get();
 
-        return view('teacher.monitoring.exam', compact('exam', 'sessions'));
+        return view('dashboard.teacher.monitoring.exam', compact('exam', 'sessions'));
     }
 
     /**
@@ -69,24 +64,68 @@ class LiveMonitoringController extends Controller
 
         $sessions = $exam->sessions()
             ->with('student')
-            ->whereIn('status', ['in_progress', 'paused'])
+            ->withCount([
+                'answers as answered_answers_count' => function ($query) {
+                    $query->where('is_answered', true);
+                },
+            ])
+            ->whereIn('status', ['scheduled', 'in_progress', 'paused', 'completed', 'terminated'])
+            ->latest('updated_at')
             ->get()
-            ->map(function($session) {
+            ->map(function ($session) {
+                $liveTimeSpent = $session->time_spent;
+
+                if ($session->status === 'in_progress' && $session->started_at) {
+                    $liveTimeSpent = max(0, now()->diffInSeconds($session->started_at));
+                }
+
                 return [
                     'id' => $session->id,
                     'student_name' => $session->student->name,
+                    'student_email' => $session->student->email,
                     'status' => $session->status,
-                    'progress' => $session->answers()->where('is_answered', true)->count(),
+                    'progress' => $session->answered_answers_count,
                     'total' => $session->total_questions,
-                    'time_spent' => $session->time_spent,
+                    'time_spent' => $liveTimeSpent,
                     'violations' => $session->violation_count,
-                    'last_activity' => $session->last_activity_at?->diffForHumans(),
+                    'last_activity' => $session->last_activity_at?->diffForHumans() ?? 'Just now',
                 ];
             });
 
+        $totalActive = $sessions->whereIn('status', ['scheduled', 'in_progress', 'paused'])->count();
+
         return response()->json([
-            'sessions' => $sessions,
-            'total_active' => $sessions->count(),
+            'sessions' => $sessions->values(),
+            'total_active' => $totalActive,
+        ]);
+    }
+
+    /**
+     * Start exam for all scheduled sessions (lobby approval)
+     */
+    public function startExam(Exam $exam)
+    {
+        if (!Auth::user()->isAdmin() && $exam->teacher_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $sessions = $exam->sessions()
+            ->where('status', 'scheduled')
+            ->get();
+
+        foreach ($sessions as $session) {
+            $session->update([
+                'status' => 'in_progress',
+                'started_at' => now(),
+                'last_activity_at' => now(),
+            ]);
+
+            broadcast(new \App\Events\ExamStartAllowed($session))->toOthers();
+        }
+
+        return response()->json([
+            'success' => true,
+            'started' => $sessions->count(),
         ]);
     }
 
@@ -126,5 +165,19 @@ class LiveMonitoringController extends Controller
         broadcast(new ExamResumed($session->id, $session->student_id))->toOthers();
 
         return response()->json(['success' => true]);
+    }
+
+    /**
+     * View session details
+     */
+    public function showSession(ExamSession $session)
+    {
+        if (!Auth::user()->isAdmin() && $session->teacher_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $session->load(['student', 'exam']);
+
+        return view('dashboard.teacher.monitoring.session', compact('session'));
     }
 }

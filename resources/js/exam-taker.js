@@ -18,6 +18,9 @@ class ExamTaker {
         this.paused = false;
         this.resumeAllowed = false;
         this.pauseModal = null;
+        this.startLocked = !!config.startLocked;
+        this.started = false;
+        this.lobbyModal = null;
 
         console.log('Total questions found:', this.totalQuestions);
 
@@ -39,15 +42,13 @@ class ExamTaker {
         this.checkElements();
         this.setupEventListeners();
         this.setupManualSave(); // Add this
-        this.setupAutoSave();
         this.setupPauseModal();
-        this.setupViolationDetection();
         this.setupWebSocket();
         this.setupBeforeUnload(); // Add this
-        this.startTimer();
+        this.setupLobbyModal();
 
-        if (this.totalQuestions > 0) {
-            this.showQuestion(0);
+        if (!this.startLocked) {
+            this.startExamFlow();
         }
     }
 
@@ -375,6 +376,54 @@ class ExamTaker {
         }
     }
 
+    setupLobbyModal() {
+        const modalEl = document.getElementById('examLobbyModal');
+        if (!modalEl || !window.bootstrap) return;
+
+        this.lobbyModal = new window.bootstrap.Modal(modalEl, {
+            backdrop: 'static',
+            keyboard: false,
+        });
+
+        const proceedBtn = document.getElementById('proceed-exam-btn');
+        const statusEl = document.getElementById('lobby-status');
+
+        if (this.startLocked) {
+            if (statusEl) statusEl.textContent = 'Waiting for instructor to start the exam...';
+            if (proceedBtn) proceedBtn.disabled = true;
+            this.lobbyModal.show();
+        }
+
+        if (proceedBtn) {
+            proceedBtn.addEventListener('click', () => {
+                if (this.startLocked || this.started) return;
+                this.lobbyModal.hide();
+                this.startExamFlow();
+            });
+        }
+    }
+
+    startExamFlow() {
+        if (this.started) return;
+        this.started = true;
+
+        this.setupAutoSave();
+        this.setupViolationDetection();
+        this.startTimer();
+
+        if (this.totalQuestions > 0) {
+            this.showQuestion(0);
+        }
+    }
+
+    enableStart(message = 'You may start the exam now.') {
+        this.startLocked = false;
+        const statusEl = document.getElementById('lobby-status');
+        const proceedBtn = document.getElementById('proceed-exam-btn');
+        if (statusEl) statusEl.textContent = message;
+        if (proceedBtn) proceedBtn.disabled = false;
+    }
+
     handleFocusLoss(type, description) {
         if (this.paused) return;
         this.paused = true;
@@ -448,6 +497,47 @@ class ExamTaker {
                 console.log('Tab key detected');
                 this.handleFocusLoss('tab_key', 'Pressed tab key');
             }
+        });
+
+        // Window resize detection
+        window.addEventListener('resize', () => {
+            console.log('Window resize detected');
+            this.logViolation('window_resize', 'Window was resized');
+        });
+
+        // Browser back button / Page navigation detection
+        window.addEventListener('beforeunload', (e) => {
+            if (this.started && !this.paused) {
+                console.log('Navigation attempt detected');
+                this.logViolation('page_navigation', 'Attempted to navigate or reload page');
+            }
+        });
+
+        // Detect new window/tab open attempt
+        window.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'n' || e.key === 'N' || e.key === 't' || e.key === 'T')) {
+                console.log('New window/tab attempt detected');
+                e.preventDefault();
+                this.logViolation('new_tab_attempt', 'Attempted to open new tab/window');
+            }
+        });
+
+        // Detect window minimize via size changes
+        let lastWidth = window.innerWidth;
+        let lastHeight = window.innerHeight;
+
+        window.addEventListener('resize', () => {
+            const currentWidth = window.innerWidth;
+            const currentHeight = window.innerHeight;
+
+            // Check if window was minimized (height/width dramatically reduced)
+            if ((currentHeight < 100 || currentWidth < 100) && (lastHeight > 100 || lastWidth > 100)) {
+                console.log('Window minimize detected');
+                this.handleFocusLoss('window_minimize', 'Window was minimized');
+            }
+
+            lastWidth = currentWidth;
+            lastHeight = currentHeight;
         });
 
         // Copy/Paste prevention
@@ -529,20 +619,25 @@ class ExamTaker {
             return;
         }
 
-        // Listen for teacher warnings
-        window.Echo.private(`exam.${this.examId}`)
-            .listen('.teacher.warning', (e) => {
-                console.log('Teacher warning received:', e);
-                this.showWarning(e.message);
-            })
-            .listen('.exam.forceEnd', () => {
-                console.log('Force end command received from teacher');
-                this.forceEndExam();
+        // Listen for exam start approval on exam channel
+        window.Echo.channel(`exam.${this.examId}`)
+            .listen('.exam.start.allowed', (e) => {
+                if (String(e.sessionId) !== String(this.sessionId)) return;
+                console.log('Exam start approved:', e);
+                this.enableStart(e.message || 'You may start the exam now.');
             });
 
-        // Listen for resume permission on student channel
+        // Listen for student-specific commands
         if (this.config.studentId) {
-            window.Echo.private(`student.${this.config.studentId}`)
+            window.Echo.channel(`student.${this.config.studentId}`)
+                .listen('.teacher.warning', (e) => {
+                    console.log('Teacher warning received:', e);
+                    this.showWarning(e.message);
+                })
+                .listen('.exam.forceEnd', (e) => {
+                    console.log('Force end command received from teacher');
+                    this.forceEndExam(e.message, e.redirect);
+                })
                 .listen('.exam.resume', (e) => {
                     console.log('Resume allowed by instructor:', e);
                     this.enableResume(e.message || 'Resume allowed');
@@ -777,10 +872,10 @@ class ExamTaker {
         this.submitExam();
     }
 
-    forceEndExam() {
+    forceEndExam(message = 'Your exam was ended by the Admin', redirect = '/student/dashboard?ended=1') {
         this.cleanup();
-        alert('Your exam has been ended by the teacher.');
-        window.location.reload();
+        alert(message);
+        window.location.href = redirect;
     }
 
     debounce(func, wait) {

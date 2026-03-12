@@ -47,6 +47,8 @@ Route::middleware(['auth'])->group(function () {
 //    Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])->name('admin.dashboard');
     Route::get('/teacher/dashboard', [TeacherDashboardController::class, 'index'])->name('teacher.dashboard');
     Route::get('/student/dashboard', [StudentDashboardController::class, 'index'])->name('student.dashboard');
+    Route::get('/student/results', [StudentDashboardController::class, 'results'])->name('student.results.index');
+    Route::get('/student/results/{session}', [StudentDashboardController::class, 'showResult'])->name('student.results.show');
 
     Route::resource('users', UserController::class);
     Route::resource('subjects', SubjectController::class);
@@ -93,6 +95,8 @@ Route::middleware(['auth', 'teacher'])->prefix('teacher')->name('teacher.')->gro
     Route::get('/monitor', [LiveMonitoringController::class, 'index'])->name('monitor');
     Route::get('/monitor/{exam}', [LiveMonitoringController::class, 'monitor'])->name('monitor.exam');
     Route::get('/monitor/{exam}/sessions', [LiveMonitoringController::class, 'getSessions'])->name('monitor.sessions');
+    Route::post('/monitor/{exam}/start', [LiveMonitoringController::class, 'startExam'])->name('monitor.start');
+    Route::get('/monitor/session/{session}/details', [LiveMonitoringController::class, 'showSession'])->name('monitor.details');
     Route::post('/monitor/session/{session}/warn', [LiveMonitoringController::class, 'sendWarning'])->name('monitor.warn');
     Route::post('/monitor/session/{session}/end', [ExamSessionController::class, 'forceEnd'])->name('monitor.force-end');
     Route::post('/monitor/session/{session}/resume', [LiveMonitoringController::class, 'resumeSession'])->name('monitor.resume');

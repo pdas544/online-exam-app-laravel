@@ -7,7 +7,7 @@ use App\Models\Subject;
 use App\Models\Question;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class ExamController extends Controller
 {
@@ -90,6 +90,13 @@ class ExamController extends Controller
     {
         $validated = $this->validateExam($request);
 
+        // Handle file upload
+        if ($request->hasFile('instructions_file')) {
+            $file = $request->file('instructions_file');
+            $path = $file->store('exam-instructions', 'public');
+            $validated['instructions_file'] = $path;
+        }
+
         $exam = Exam::create(array_merge($validated, [
             'teacher_id' => Auth::id(),
             'total_marks' => 0,
@@ -144,6 +151,19 @@ class ExamController extends Controller
         $this->authorizeExam($exam);
 
         $validated = $this->validateExam($request, $exam);
+
+        // Handle file upload
+        if ($request->hasFile('instructions_file')) {
+            // Delete old file if exists
+            if ($exam->instructions_file && Storage::disk('public')->exists($exam->instructions_file)) {
+                Storage::disk('public')->delete($exam->instructions_file);
+            }
+
+            $file = $request->file('instructions_file');
+            $path = $file->store('exam-instructions', 'public');
+            $validated['instructions_file'] = $path;
+        }
+
         $exam->update($validated);
 
         return redirect()->route('exams.show', $exam)
@@ -350,6 +370,8 @@ class ExamController extends Controller
         $rules = [
             'title' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'instructions' => 'nullable|string',
+            'instructions_file' => 'nullable|file|mimes:pdf,doc,docx,txt|max:5120',
             'subject_id' => 'required|exists:subjects,id',
             'academic_year' => 'required|integer|min:2000|max:' . date('Y'),
             'semester' => 'required|in:1,2,3,4,5,6,7,8',

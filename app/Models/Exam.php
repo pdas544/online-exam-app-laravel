@@ -13,6 +13,8 @@ class Exam extends Model
     protected $fillable = [
         'title',
         'description',
+        'instructions',
+        'instructions_file',
         'subject_id',
         'teacher_id',
         'academic_year',
@@ -54,6 +56,11 @@ class Exam extends Model
             ->withPivot('order_index', 'points_override')
             ->orderBy('exam_questions.order_index')
             ->withTimestamps();
+    }
+
+    public function sessions()
+    {
+        return $this->hasMany(ExamSession::class);
     }
 
     // Scopes
