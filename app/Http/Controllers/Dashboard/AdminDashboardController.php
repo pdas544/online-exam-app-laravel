@@ -6,6 +6,8 @@ use App\Models\User;
 use App\Models\Subject;
 use App\Models\Question;
 use App\Models\Exam;
+use App\Models\ExamSession;
+use Illuminate\Http\Request;
 
 class AdminDashboardController extends BaseDashboardController
 {
@@ -25,6 +27,7 @@ class AdminDashboardController extends BaseDashboardController
             'total_questions' => Question::count(),
             'total_exams' => Exam::count(),
             'active_exams' => Exam::where('status', 'published')->count(),
+            'active_exam_sessions' => ExamSession::active()->count(),
             'recent_users' => User::latest()->take(5)->get(),
         ];
     }
@@ -101,5 +104,30 @@ class AdminDashboardController extends BaseDashboardController
         $quickActions = $this->getQuickActions();
         $recentActivity = $this->getRecentActivity();
         return view('dashboard.admin.index', compact('stats', 'quickActions', 'recentActivity'));
+    }
+    public function activeSessions(Request $request)
+    {
+        $statusFilter = $request->query('status');
+        $allowedStatuses = ['in_progress', 'paused'];
+
+        $query = ExamSession::with(['exam:id,title', 'student:id,name,email', 'teacher:id,name'])
+            ->whereIn('status', $allowedStatuses);
+
+        if (in_array($statusFilter, $allowedStatuses, true)) {
+            $query->where('status', $statusFilter);
+        }
+
+        $activeSessions = $query->latest('started_at')->paginate(12)->withQueryString();
+
+        $statusCounts = [
+            'in_progress' => ExamSession::where('status', 'in_progress')->count(),
+            'paused'      => ExamSession::where('status', 'paused')->count(),
+        ];
+
+        return view('dashboard.admin.active-sessions', [
+            'activeSessions' => $activeSessions,
+            'statusFilter'   => $statusFilter,
+            'statusCounts'   => $statusCounts,
+        ]);
     }
 }
