@@ -12,6 +12,7 @@ class ViolationDetected extends BaseExamEvent
             $violation->exam_id,
             $violation->exam_session_id,
             [
+                'teacher_id' => $violation->session?->teacher_id,
                 'student_name' => $violation->student->name,
                 'violation_type' => $violation->violation_type,
                 'severity' => $violation->severity,

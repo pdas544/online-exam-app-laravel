@@ -12,6 +12,7 @@ class ExamEnded extends BaseExamEvent
             $session->exam_id,
             $session->id,
             [
+                'teacher_id' => $session->teacher_id,
                 'student_name' => $session->student->name,
                 'reason' => $reason,
                 'submitted_at' => $session->submitted_at,

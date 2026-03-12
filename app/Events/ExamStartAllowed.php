@@ -4,7 +4,7 @@ namespace App\Events;
 
 use App\Models\ExamSession;
 
-class StudentJoined extends BaseExamEvent
+class ExamStartAllowed extends BaseExamEvent
 {
     public function __construct(ExamSession $session)
     {
@@ -12,11 +12,9 @@ class StudentJoined extends BaseExamEvent
             $session->exam_id,
             $session->id,
             [
-                'teacher_id' => $session->teacher_id,
                 'student_id' => $session->student_id,
-                'student_name' => $session->student->name,
-                'status' => $session->status,
-                'joined_at' => now()->toISOString(),
+                'teacher_id' => $session->teacher_id,
+                'message' => 'You may start the exam now.',
             ]
         );
     }
@@ -28,6 +26,6 @@ class StudentJoined extends BaseExamEvent
 
     public function broadcastAs()
     {
-        return 'student.joined';
+        return 'exam.start.allowed';
     }
 }

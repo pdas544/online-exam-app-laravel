@@ -12,6 +12,7 @@ class ExamStarted extends BaseExamEvent
             $session->exam_id,
             $session->id,
             [
+                'teacher_id' => $session->teacher_id,
                 'student_name' => $session->student->name,
                 'started_at' => $session->started_at,
                 'time_limit' => $session->exam->time_limit,
