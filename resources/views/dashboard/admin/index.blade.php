@@ -3,57 +3,50 @@
     'title' => 'Administrator Dashboard',
     'stats' => $stats,
     'quickActions' => $quickActions,
-    'recentActivity' => $recentActivity
+    'recentActivity' => $recentActivity,
+    'showRecentActivity' => false
 ])
 
 @section('dashboard-main')
-    <!-- User Growth Chart -->
-    <div class="card mb-4">
-        <div class="card-header bg-light">
-            <h5 class="card-title mb-0">
-                <i class="bi bi-graph-up me-2"></i>User Growth
-            </h5>
+    <div class="row g-2 g-md-3 align-items-stretch">
+        <div class="col-12 col-sm-6 d-flex">
+            <div class="card border-0 shadow-sm w-100 h-100">
+                <div class="card-body p-3 p-md-4 d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="text-muted text-uppercase small fw-semibold mb-2">Active Exams</p>
+                        <h2 class="mb-1">{{ $stats['active_exams'] ?? 0 }}</h2>
+                        <p class="text-muted mb-0">Published exams available to students</p>
+                    </div>
+                    <span class="badge bg-success-subtle text-success-emphasis p-2">
+                        <i class="bi bi-file-earmark-text fs-5"></i>
+                    </span>
+                </div>
+                <div class="card-footer bg-white border-0 pt-0 pb-3 pb-md-4 px-3 px-md-4">
+                    <a href="{{ route('exams.index', ['status' => 'published']) }}" class="text-decoration-none fw-semibold">
+                        View Active Exams <i class="bi bi-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
         </div>
-        <div class="card-body">
-            <canvas id="userGrowthChart" height="100"></canvas>
-        </div>
-    </div>
 
-    <!-- Recent Users Table -->
-    <div class="card">
-        <div class="card-header bg-light d-flex justify-content-between align-items-center">
-            <h5 class="card-title mb-0">
-                <i class="bi bi-people me-2"></i>Recent Users
-            </h5>
-            <a href="{{ route('users.index') }}" class="btn btn-sm btn-primary">
-                View All <i class="bi bi-arrow-right ms-1"></i>
-            </a>
-        </div>
-        <div class="card-body p-0">
-            <table class="table table-hover mb-0">
-                <thead class="table-light">
-                <tr>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Role</th>
-                    <th>Joined</th>
-                </tr>
-                </thead>
-                <tbody>
-                @foreach($stats['recent_users'] as $user)
-                    <tr>
-                        <td>{{ $user->name }}</td>
-                        <td>{{ $user->email }}</td>
-                        <td>
-                            <span class="badge bg-{{ $user->role === 'admin' ? 'danger' : ($user->role === 'teacher' ? 'info' : 'success') }}">
-                                {{ ucfirst($user->role) }}
-                            </span>
-                        </td>
-                        <td>{{ $user->created_at->diffForHumans() }}</td>
-                    </tr>
-                @endforeach
-                </tbody>
-            </table>
+        <div class="col-12 col-sm-6 d-flex">
+            <div class="card border-0 shadow-sm w-100 h-100">
+                <div class="card-body p-3 p-md-4 d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="text-muted text-uppercase small fw-semibold mb-2">Active Exam Sessions</p>
+                        <h2 class="mb-1">{{ $stats['active_exam_sessions'] ?? 0 }}</h2>
+                        <p class="text-muted mb-0">Ongoing and paused student sessions</p>
+                    </div>
+                    <span class="badge bg-info-subtle text-info-emphasis p-2">
+                        <i class="bi bi-play-circle fs-5"></i>
+                    </span>
+                </div>
+                <div class="card-footer bg-white border-0 pt-0 pb-3 pb-md-4 px-3 px-md-4">
+                    <a href="{{ route('admin.exam-sessions.active') }}" class="text-decoration-none fw-semibold">
+                        View Active Sessions <i class="bi bi-arrow-right ms-1"></i>
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 @endsection

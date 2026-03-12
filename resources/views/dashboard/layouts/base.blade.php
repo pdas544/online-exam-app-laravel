@@ -53,30 +53,35 @@
             @include('dashboard.components.quick-actions', ['actions' => $quickActions])
         @endif
 
+        @php
+            $showRecentActivityColumn = $showRecentActivity ?? true;
+        @endphp
+
         <!-- Main Content Row -->
         <div class="row">
-            <!-- Left Column (8 cols) - Role-specific content -->
-            <div class="col-md-8">
+            <!-- Left Column - Role-specific content -->
+            <div class="{{ $showRecentActivityColumn ? 'col-md-8' : 'col-12' }}">
                 @yield('dashboard-main')
             </div>
 
-            <!-- Right Column (4 cols) - Recent Activity -->
-            <!-- Right Column (4 cols) - Recent Activity -->
-            <div class="col-md-4">
-                @if(isset($recentActivity) && is_array($recentActivity))
-                    @include('dashboard.components.recent-activity', [
-                        'items' => $recentActivity,
-                        'title' => $activityTitle ?? 'Recent Activity'
-                    ])
-                @else
-                    <div class="card">
-                        <div class="card-body text-center text-muted">
-                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                            <span>No recent activity</span>
+            @if($showRecentActivityColumn)
+                <!-- Right Column (4 cols) - Recent Activity -->
+                <div class="col-md-4">
+                    @if(isset($recentActivity) && is_array($recentActivity))
+                        @include('dashboard.components.recent-activity', [
+                            'items' => $recentActivity,
+                            'title' => $activityTitle ?? 'Recent Activity'
+                        ])
+                    @else
+                        <div class="card">
+                            <div class="card-body text-center text-muted">
+                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                <span>No recent activity</span>
+                            </div>
                         </div>
-                    </div>
-                @endif
-            </div>
+                    @endif
+                </div>
+            @endif
         </div>
     </div>
 @endsection
