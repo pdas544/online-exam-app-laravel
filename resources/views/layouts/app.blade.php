@@ -31,17 +31,17 @@
                             @if(auth()->user()->isAdmin())
                                 <li><a class="dropdown-item" href="{{ route('admin.dashboard') }}">Admin Dashboard</a></li>
                                 <li><a class="dropdown-item" href="{{route('users.index')}}">Manage Users</a></li>
-                                <li><a class="dropdown-item" href={{route('subjects.index')}}>Manage Subjects</a></li>
+                                <li><a class="dropdown-item" href="{{route('subjects.index')}}">Manage Subjects</a></li>
                                 <li><a class="dropdown-item" href="{{route('exams.index')}}">Manage Exams</a></li>
                                 <li><a class="dropdown-item" href="{{route('questions.index')}}">Manage Questions</a></li>
                                 <li><hr class="dropdown-divider"></li>
                             @elseif(auth()->user()->isTeacher())
-                                <li><a class="dropdown-item" href="{{ route('admin.dashboard') }}">Teacher Dashboard</a></li>
+                                <li><a class="dropdown-item" href="{{ route('teacher.dashboard') }}">Teacher Dashboard</a></li>
                                 <li><a class="dropdown-item" href="{{ route('exams.index') }}">My Exams</a></li>
                                 <li><a class="dropdown-item" href="{{ route('questions.index') }}">My Questions</a></li>
                                 <li><hr class="dropdown-divider"></li>
                             @else
-                                <li><a class="dropdown-item" href="{{ route('admin.dashboard') }}">Student Dashboard</a></li>
+                                <li><a class="dropdown-item" href="{{ route('student.dashboard') }}">Student Dashboard</a></li>
                                 <li><a class="dropdown-item" href="">Available Exams</a></li>
                                 <li><a class="dropdown-item" href="">My Results</a></li>
                                 <li><hr class="dropdown-divider"></li>

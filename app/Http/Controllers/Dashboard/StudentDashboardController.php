@@ -26,23 +26,141 @@ class StudentDashboardController extends Controller
     {
         $studentId = Auth::id();
 
-        $stats = $this->getStats($studentId);
-        $quickActions = $this->getQuickActions();
-        $resumeExams = $this->getResumeExams($studentId);      // NEW
+        $resumeExams = $this->getResumeExams($studentId);
         $availableExams = $this->getAvailableExams($studentId);
-        $upcomingExams = $this->getUpcomingExams();
-        $pastResults = $this->getPastResults($studentId);
-        $recentActivity = $this->getRecentActivity($studentId);
 
         return view('dashboard.student.index', compact(
-            'stats',
-            'quickActions',
-            'resumeExams',                                     // NEW
-            'availableExams',
-            'upcomingExams',
-            'pastResults',
-            'recentActivity'
+            'resumeExams',
+            'availableExams'
         ));
+    }
+
+    /**
+     * Show completed exam results for the logged in student.
+     */
+    public function results()
+    {
+        $studentId = Auth::id();
+
+        $results = ExamSession::with(['exam'])
+            ->where('student_id', $studentId)
+            ->where('status', 'completed')
+            ->orderByDesc('submitted_at')
+            ->get()
+            ->map(function ($session) {
+                $marksSecured = (float) ($session->answers()->sum('points_earned') ?? 0);
+                $totalMarks = (float) ($session->answers()->sum('max_points') ?? 0);
+
+                return [
+                    'session_id' => $session->id,
+                    'exam_name' => $session->exam->title ?? 'N/A',
+                    'marks_secured' => $marksSecured,
+                    'total_marks' => $totalMarks,
+                    'submitted_at' => optional($session->submitted_at)->format('M d, Y h:i A'),
+                ];
+            });
+
+        return view('dashboard.student.results.index', compact('results'));
+    }
+
+    /**
+     * Show detailed report for one completed session owned by the logged in student.
+     */
+    public function showResult(ExamSession $session)
+    {
+        if ($session->student_id !== Auth::id()) {
+            abort(403, 'Unauthorized access.');
+        }
+
+        if ($session->status !== 'completed') {
+            return redirect()->route('student.results.index')
+                ->with('error', 'Result is available only after exam completion.');
+        }
+
+        $session->load(['exam.subject', 'answers.question']);
+
+        $rows = $session->answers
+            ->sortBy('question_id')
+            ->values()
+            ->map(function ($answer, $index) {
+                $question = $answer->question;
+
+                return [
+                    'index' => $index + 1,
+                    'question_text' => $question->question_text ?? 'N/A',
+                    'correct_option' => $this->formatAnswerForDisplay($question, $question->correct_answers),
+                    'selected_option' => $this->formatAnswerForDisplay($question, $answer->answer),
+                    'is_correct' => (bool) $answer->is_correct,
+                ];
+            });
+
+        $summary = [
+            'exam_name' => $session->exam->title ?? 'N/A',
+            'subject' => $session->exam->subject->name ?? 'N/A',
+            'submitted_at' => optional($session->submitted_at)->format('M d, Y h:i A'),
+            'marks_secured' => (float) ($session->answers->sum('points_earned') ?? 0),
+            'total_marks' => (float) ($session->answers->sum('max_points') ?? 0),
+        ];
+
+        return view('dashboard.student.results.show', [
+            'summary' => $summary,
+            'rows' => $rows,
+        ]);
+    }
+
+    /**
+     * Render answer values in a readable form across question types.
+     */
+    private function formatAnswerForDisplay(?\App\Models\Question $question, mixed $rawAnswer): string
+    {
+        $values = $this->normalizeAnswerValues($rawAnswer);
+
+        if (empty($values)) {
+            return 'Not answered';
+        }
+
+        $displayValues = [];
+
+        foreach ($values as $value) {
+            $displayValues[] = $this->formatSingleAnswerValue($question, $value);
+        }
+
+        return implode(', ', $displayValues);
+    }
+
+    private function normalizeAnswerValues(mixed $value): array
+    {
+        if ($value === null || $value === '') {
+            return [];
+        }
+
+        if (is_array($value)) {
+            return array_values(array_filter($value, static function ($item) {
+                return $item !== null && $item !== '';
+            }));
+        }
+
+        return [$value];
+    }
+
+    private function formatSingleAnswerValue(?\App\Models\Question $question, mixed $value): string
+    {
+        $stringValue = is_string($value) ? $value : (string) $value;
+
+        if (!$question) {
+            return $stringValue;
+        }
+
+        if (in_array($question->question_type, ['mcq_single', 'mcq_multiple'], true)) {
+            $optionText = is_array($question->options) ? ($question->options[$stringValue] ?? null) : null;
+            return $optionText ? ($stringValue . '. ' . $optionText) : $stringValue;
+        }
+
+        if ($question->question_type === 'true_false') {
+            return ucfirst($stringValue);
+        }
+
+        return $stringValue;
     }
 
     /**

@@ -24,18 +24,10 @@ class TeacherDashboardController extends Controller
     {
         $teacherId = Auth::id();
 
-        $stats = $this->getStats($teacherId);
-        $quickActions = $this->getQuickActions();
-        $recentActivity = $this->getRecentActivity($teacherId);
         $upcomingExams = $this->getUpcomingExams($teacherId);
-        $subjectPerformance = $this->getSubjectPerformance($teacherId);
 
         return view('dashboard.teacher.index', compact(
-            'stats',
-            'quickActions',
-            'recentActivity',
-            'upcomingExams',
-            'subjectPerformance'
+            'upcomingExams'
         ));
     }
 

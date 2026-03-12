@@ -12,7 +12,7 @@
                     <h5 class="mb-0"><i class="fas fa-plus-circle me-2"></i>New Exam</h5>
                 </div>
                 <div class="card-body">
-                    <form method="POST" action="{{ route('exams.store') }}">
+                    <form method="POST" action="{{ route('exams.store') }}" enctype="multipart/form-data">
                         @csrf
 
                         <!-- Basic Information -->
@@ -76,6 +76,30 @@
                             @error('description')
                             <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
+                        </div>
+
+                        <!-- Instructions -->
+                        <div class="mb-3">
+                            <label for="instructions" class="form-label">Exam Instructions for Students</label>
+                            <textarea class="form-control @error('instructions') is-invalid @enderror"
+                                      id="instructions" name="instructions" rows="5"
+                                      placeholder="Enter detailed instructions that students will see in the lobby (e.g., how to answer, time limits, rules, etc.)">{{ old('instructions') }}</textarea>
+                            @error('instructions')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                            <div class="form-text">This will be displayed to students in the exam lobby before they start.</div>
+                        </div>
+
+                        <!-- Instructions File Upload -->
+                        <div class="mb-3">
+                            <label for="instructions_file" class="form-label">Instructions File (Optional)</label>
+                            <input type="file" class="form-control @error('instructions_file') is-invalid @enderror"
+                                   id="instructions_file" name="instructions_file"
+                                   accept=".pdf,.doc,.docx,.txt">
+                            @error('instructions_file')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                            <div class="form-text">Accepted formats: PDF, DOC, DOCX, TXT (Max 5MB)</div>
                         </div>
 
                         <!-- Exam Settings -->

@@ -12,6 +12,7 @@
              'csrf' => csrf_token(),
              'autoSaveInterval' => 60,
              'fullscreenRequired' => true,
+             'startLocked' => $session->status === 'scheduled',
              'debug' => true,
          ]) }}">
 
@@ -195,6 +196,57 @@
                         </button>
                         <button class="btn btn-outline-primary next-question">
                             Next <i class="bi bi-arrow-right ms-1"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Exam Lobby Modal -->
+    <div class="modal fade" id="examLobbyModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-fullscreen">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">{{ $session->exam->title }} - Instructions</h5>
+                </div>
+                <div class="modal-body d-flex flex-column justify-content-between">
+                    <!-- Instructions content -->
+                    <div class="instructions-content mb-4">
+                        @if($session->exam->instructions)
+                            <div class="mb-4">
+                                <h6 class="fw-bold">Instructions:</h6>
+                                <div class="border rounded p-3 bg-light">
+                                    {!! nl2br(e($session->exam->instructions)) !!}
+                                </div>
+                            </div>
+                        @endif
+
+                        @if($session->exam->instructions_file)
+                            <div class="mb-4">
+                                <h6 class="fw-bold">Instruction Document:</h6>
+                                <a href="{{ asset('storage/' . $session->exam->instructions_file) }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                    <i class="bi bi-file-earmark-download me-1"></i> Download Instructions
+                                </a>
+                            </div>
+                        @endif
+
+                        <div class="alert alert-warning mt-4">
+                            <h6 class="fw-bold mb-2">Important Guidelines:</h6>
+                            <ul class="mb-0 ms-3">
+                                <li>Stay on this tab during the exam.</li>
+                                <li>Do not switch windows or exit fullscreen.</li>
+                                <li>Violations will be recorded and may result in exam termination.</li>
+                                <li>Save your answers frequently using the Save button.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Footer with status and button -->
+                    <div class="text-center border-top pt-3">
+                        <div id="lobby-status" class="text-muted mb-3">Waiting for instructor to start the exam...</div>
+                        <button class="btn btn-success btn-lg" id="proceed-exam-btn" disabled>
+                            Proceed for Exam
                         </button>
                     </div>
                 </div>

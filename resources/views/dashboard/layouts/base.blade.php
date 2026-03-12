@@ -49,7 +49,9 @@
         </div>
 
         <!-- Quick Actions -->
-        @include('dashboard.components.quick-actions', ['actions' => $quickActions])
+        @if(isset($quickActions) && is_array($quickActions) && count($quickActions) > 0)
+            @include('dashboard.components.quick-actions', ['actions' => $quickActions])
+        @endif
 
         <!-- Main Content Row -->
         <div class="row">
