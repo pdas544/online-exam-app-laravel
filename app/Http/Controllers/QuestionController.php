@@ -258,13 +258,13 @@ class QuestionController extends Controller
                     $letter = chr(65 + $index); // A, B, C, D...
                     $options[$letter] = $option;
                 }
-                $processed['options'] = json_encode($options);
-                $processed['correct_answers'] = json_encode($validatedData['correct_answers']);
+                $processed['options'] = $options;
+                $processed['correct_answers'] = array_values($validatedData['correct_answers']);
                 break;
 
             case 'true_false':
             case 'fill_blank':
-                $processed['correct_answers'] = json_encode($validatedData['correct_answers']);
+                $processed['correct_answers'] = array_values($validatedData['correct_answers']);
                 $processed['options'] = null;
                 break;
         }

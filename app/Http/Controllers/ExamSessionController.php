@@ -463,22 +463,42 @@ class ExamSessionController extends Controller
 
     private function normalizeAnswer($answer)
     {
+        // Canonical contract: answer is either null or a non-empty array of strings.
         if (is_array($answer)) {
-            return array_values(array_filter($answer, static function ($value) {
-                return $value !== null && $value !== '';
-            }));
+            $filtered = array_filter($answer, static function ($value) {
+                if ($value === null) {
+                    return false;
+                }
+
+                return trim((string) $value) !== '';
+            });
+
+            if (empty($filtered)) {
+                return null;
+            }
+
+            return array_values(array_map(static function ($value) {
+                return trim((string) $value);
+            }, $filtered));
         }
 
         if ($answer === null) {
             return null;
         }
 
-        if (is_string($answer)) {
-            $trimmed = trim($answer);
-            return $trimmed === '' ? null : $trimmed;
+        $trimmed = trim((string) $answer);
+        if ($trimmed === '') {
+            return null;
         }
 
-        return $answer;
+        $normalized = strtolower($trimmed);
+        if (in_array($normalized, ['1', 'true', 'yes'], true)) {
+            $trimmed = 'true';
+        } elseif (in_array($normalized, ['0', 'false', 'no'], true)) {
+            $trimmed = 'false';
+        }
+
+        return [$trimmed];
     }
 
     private function isAnsweredValue($answer): bool

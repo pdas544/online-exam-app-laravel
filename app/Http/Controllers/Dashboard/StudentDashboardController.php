@@ -134,6 +134,20 @@ class StudentDashboardController extends Controller
             return [];
         }
 
+        if (is_string($value)) {
+            $decoded = json_decode($value, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                $value = $decoded;
+
+                if (is_string($value)) {
+                    $secondDecode = json_decode($value, true);
+                    if (json_last_error() === JSON_ERROR_NONE) {
+                        $value = $secondDecode;
+                    }
+                }
+            }
+        }
+
         if (is_array($value)) {
             return array_values(array_filter($value, static function ($item) {
                 return $item !== null && $item !== '';
@@ -157,6 +171,14 @@ class StudentDashboardController extends Controller
         }
 
         if ($question->question_type === 'true_false') {
+            $normalized = strtolower(trim($stringValue));
+            if (in_array($normalized, ['1', 'true', 'yes'], true)) {
+                return 'True';
+            }
+            if (in_array($normalized, ['0', 'false', 'no'], true)) {
+                return 'False';
+            }
+
             return ucfirst($stringValue);
         }
 
