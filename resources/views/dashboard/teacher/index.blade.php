@@ -68,7 +68,7 @@
                                                         <i class="bi bi-list-check"></i>
                                                     </a>
                                                     @if($exam['status'] == 'available')
-                                                        <a href="{{ route('teacher.monitor.exam', $exam['id']) }}" class="btn btn-outline-success" title="Monitor Live">
+                                                        <a href="{{ route('monitor.exam', $exam['id']) }}" class="btn btn-outline-success" title="Monitor Live">
                                                             <i class="bi bi-camera-video"></i>
                                                         </a>
                                                     @endif

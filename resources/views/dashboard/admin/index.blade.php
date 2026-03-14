@@ -8,7 +8,6 @@
 ])
 
 @section('dashboard-main')
-    {{-- KPI Row --}}
     <div class="row g-2 g-md-3 align-items-stretch mb-3">
         <div class="col-12 col-sm-6 d-flex">
             <div class="card border-0 shadow-sm w-100 h-100">
@@ -24,7 +23,7 @@
                 </div>
                 <div class="card-footer bg-white border-0 pt-0 pb-3 pb-md-4 px-3 px-md-4">
                     <a href="{{ route('exams.index', ['status' => 'published']) }}" class="text-decoration-none fw-semibold">
-                        View Active Exams <i class="bi bi-arrow-right ms-1"></i>
+                        View All <i class="bi bi-arrow-right ms-1"></i>
                     </a>
                 </div>
             </div>

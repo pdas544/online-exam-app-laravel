@@ -1,5 +1,5 @@
 @extends('dashboard.layouts.base', [
-    'role' => 'teacher',
+    'role' => auth()->user()->role,
     'title' => 'Session Details'
 ])
 
@@ -10,7 +10,7 @@
                 <h5 class="mb-0">{{ $session->student->name }}</h5>
                 <small class="text-muted">{{ $session->student->email }}</small>
             </div>
-            <a href="{{ route('teacher.monitor.exam', $session->exam_id) }}" class="btn btn-outline-secondary btn-sm">
+            <a href="{{ route('monitor.exam', $session->exam_id) }}" class="btn btn-outline-secondary btn-sm">
                 Back to Monitor
             </a>
         </div>

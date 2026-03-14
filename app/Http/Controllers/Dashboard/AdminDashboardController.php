@@ -115,7 +115,13 @@ class AdminDashboardController extends BaseDashboardController
             'paused'      => $activeSessions->where('status', 'paused')->count(),
         ];
 
-        return view('dashboard.admin.index', compact('stats', 'quickActions', 'recentActivity', 'activeSessions', 'sessionCounts'));
+        return view('dashboard.admin.index', compact(
+            'stats',
+            'quickActions',
+            'recentActivity',
+            'activeSessions',
+            'sessionCounts'
+        ));
     }
     public function activeSessions(Request $request)
     {

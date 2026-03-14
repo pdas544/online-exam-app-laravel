@@ -1,5 +1,5 @@
 @extends('dashboard.layouts.base', [
-    'role' => 'teacher',
+    'role' => auth()->user()->role,
     'title' => 'Live Monitoring: ' . $exam->title
 ])
 
@@ -21,7 +21,7 @@
                                 </p>
                             </div>
                             <div>
-                                <a href="{{ route('teacher.dashboard') }}" class="btn btn-light btn-sm me-2">
+                                <a href="{{ auth()->user()->isAdmin() ? route('admin.dashboard') : route('teacher.dashboard') }}" class="btn btn-light btn-sm me-2">
                                     <i class="bi bi-arrow-left"></i> Back to Dashboard
                                 </a>
                                 <button class="btn btn-success btn-sm me-2" id="start-exam-btn">

@@ -32,29 +32,19 @@ Route::middleware('guest')->group(function () {
 
 // Protected routes
 Route::middleware(['auth'])->group(function () {
-    // Exam Question Management Routes
-        Route::get('/exams/{exam}/questions', [ExamController::class, 'manageQuestions'])->name('exams.questions');
-        Route::post('/exams/{exam}/questions', [ExamController::class, 'addQuestion'])->name('exams.questions.add');
-        Route::post('/exams/{exam}/questions/bulk', [ExamController::class, 'bulkAddQuestions'])->name('exams.questions.bulk');
-        Route::delete('/exams/{exam}/questions/{question}', [ExamController::class, 'removeQuestion'])->name('exams.questions.remove');
+    // Exam Taking Routes
+    Route::get('/exam/{exam}/start', [ExamSessionController::class, 'start'])->name('exam.start');
+    Route::post('/exam/session/{session}/begin', [ExamSessionController::class, 'begin'])->name('exam.session.begin');
+    Route::get('/exam/session/{session}/take', [ExamSessionController::class, 'take'])->name('exam.session.take');
+    Route::get('/exam/session/{session}/resume', [ExamSessionController::class, 'resume'])->name('exam.session.resume');
+    Route::post('/exam/session/{session}/answer', [ExamSessionController::class, 'saveAnswer'])->name('exam.session.answer');
+    Route::post('/exam/session/{session}/submit', [ExamSessionController::class, 'submit'])->name('exam.session.submit');
+    Route::post('/exam/session/{session}/timer', [ExamSessionController::class, 'syncTimer'])->name('exam.session.timer');
+    Route::post('/exam/session/{session}/violation', [ExamSessionController::class, 'logViolation'])->name('exam.session.violation');
+    Route::get('/exam/session/{session}/status', [ExamSessionController::class, 'status'])->name('exam.session.status');
+    Route::get('/exam/session/{session}/result', [ExamSessionController::class, 'result'])->name('exam.session.result');
 
-        // AJAX Routes for dynamic updates
-        Route::post('/exams/{exam}/questions/reorder', [ExamController::class, 'reorderQuestions'])->name('exams.questions.reorder');
-        Route::put('/exams/{exam}/questions/{question}/points', [ExamController::class, 'updatePoints'])->name('exams.questions.points');
-
-        // Exam Taking Routes
-        Route::get('/exam/{exam}/start', [ExamSessionController::class, 'start'])->name('exam.start');
-        Route::post('/exam/session/{session}/begin', [ExamSessionController::class, 'begin'])->name('exam.session.begin');
-        Route::get('/exam/session/{session}/take', [ExamSessionController::class, 'take'])->name('exam.session.take');
-        Route::get('/exam/session/{session}/resume', [ExamSessionController::class, 'resume'])->name('exam.session.resume');
-        Route::post('/exam/session/{session}/answer', [ExamSessionController::class, 'saveAnswer'])->name('exam.session.answer');
-        Route::post('/exam/session/{session}/submit', [ExamSessionController::class, 'submit'])->name('exam.session.submit');
-        Route::post('/exam/session/{session}/timer', [ExamSessionController::class, 'syncTimer'])->name('exam.session.timer');
-        Route::post('/exam/session/{session}/violation', [ExamSessionController::class, 'logViolation'])->name('exam.session.violation');
-        Route::get('/exam/session/{session}/status', [ExamSessionController::class, 'status'])->name('exam.session.status');
-        Route::get('/exam/session/{session}/result', [ExamSessionController::class, 'result'])->name('exam.session.result');
-        
-        Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
     // Admin routes - using simple auth middleware with role checks in controllers
         Route::prefix('admin')->name('admin.')->group(function () {
@@ -72,26 +62,39 @@ Route::middleware(['auth'])->group(function () {
 
     Route::resource('users', UserController::class);
     Route::resource('subjects', SubjectController::class);
-    Route::resource('exams', ExamController::class);
-    Route::resource('questions', QuestionController::class);
-     Route::post('/questions/{question}/duplicate', [QuestionController::class, 'duplicate'])->name('questions.duplicate');
-    // Optional: Bulk import route
-    Route::get('questions/import', [QuestionController::class, 'import'])
-        ->name('questions.import');
-});
+    Route::middleware('teacher')->group(function () {
+        // Shared Admin/Teacher: Exams + Questions
+        Route::resource('exams', ExamController::class);
+        Route::resource('questions', QuestionController::class);
+        Route::post('/questions/{question}/duplicate', [QuestionController::class, 'duplicate'])->name('questions.duplicate');
+        Route::get('questions/import', [QuestionController::class, 'import'])->name('questions.import');
 
+        // Shared Admin/Teacher: Exam Question Management
+        Route::get('/exams/{exam}/questions', [ExamController::class, 'manageQuestions'])->name('exams.questions');
+        Route::post('/exams/{exam}/questions', [ExamController::class, 'addQuestion'])->name('exams.questions.add');
+        Route::post('/exams/{exam}/questions/bulk', [ExamController::class, 'bulkAddQuestions'])->name('exams.questions.bulk');
+        Route::delete('/exams/{exam}/questions/{question}', [ExamController::class, 'removeQuestion'])->name('exams.questions.remove');
+        Route::post('/exams/{exam}/questions/reorder', [ExamController::class, 'reorderQuestions'])->name('exams.questions.reorder');
+        Route::put('/exams/{exam}/questions/{question}/points', [ExamController::class, 'updatePoints'])->name('exams.questions.points');
 
+        // Shared Admin/Teacher: Live Monitoring
+        Route::get('/monitor', [LiveMonitoringController::class, 'index'])->name('monitor');
+        Route::get('/monitor/{exam}', [LiveMonitoringController::class, 'monitor'])->name('monitor.exam');
 
-// Teacher Monitoring Routes
-Route::middleware(['auth', 'teacher'])->prefix('teacher')->name('teacher.')->group(function () {
-    Route::get('/monitor', [LiveMonitoringController::class, 'index'])->name('monitor');
-    Route::get('/monitor/{exam}', [LiveMonitoringController::class, 'monitor'])->name('monitor.exam');
-    Route::get('/monitor/{exam}/sessions', [LiveMonitoringController::class, 'getSessions'])->name('monitor.sessions');
-    Route::post('/monitor/{exam}/start', [LiveMonitoringController::class, 'startExam'])->name('monitor.start');
-    Route::get('/monitor/session/{session}/details', [LiveMonitoringController::class, 'showSession'])->name('monitor.details');
-    Route::post('/monitor/session/{session}/warn', [LiveMonitoringController::class, 'sendWarning'])->name('monitor.warn');
-    Route::post('/monitor/session/{session}/end', [ExamSessionController::class, 'forceEnd'])->name('monitor.force-end');
-    Route::post('/monitor/session/{session}/resume', [LiveMonitoringController::class, 'resumeSession'])->name('monitor.resume');
+        // Backward-compatible aliases for exam monitor route.
+        Route::get('/admin/monitor/{exam}', [LiveMonitoringController::class, 'monitor'])->name('admin.monitor.exam');
+        Route::get('/teacher/monitor/{exam}', [LiveMonitoringController::class, 'monitor'])->name('teacher.monitor.exam');
+
+        // Keep existing teacher-prefixed endpoints used by live monitor JS/actions.
+        Route::prefix('teacher')->group(function () {
+            Route::get('/monitor/{exam}/sessions', [LiveMonitoringController::class, 'getSessions'])->name('monitor.sessions');
+            Route::post('/monitor/{exam}/start', [LiveMonitoringController::class, 'startExam'])->name('monitor.start');
+            Route::get('/monitor/session/{session}/details', [LiveMonitoringController::class, 'showSession'])->name('monitor.details');
+            Route::post('/monitor/session/{session}/warn', [LiveMonitoringController::class, 'sendWarning'])->name('monitor.warn');
+            Route::post('/monitor/session/{session}/end', [ExamSessionController::class, 'forceEnd'])->name('monitor.force-end');
+            Route::post('/monitor/session/{session}/resume', [LiveMonitoringController::class, 'resumeSession'])->name('monitor.resume');
+        });
+    });
 });
 
 // Broadcasting Authentication Route (required for private channels with Laravel Reverb)
