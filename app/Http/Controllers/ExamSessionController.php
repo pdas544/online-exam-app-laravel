@@ -9,7 +9,8 @@ use App\Models\Question;
 use App\Events\ExamEnded;
 use App\Events\AnswerSaved;
 use App\Events\StudentJoined;
-use App\Events\ViolationDetected;
+use App\Jobs\GradeExamSession;
+use App\Jobs\LogExamViolation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -90,9 +91,15 @@ class ExamSessionController extends Controller
     {
         $this->authorizeSession($session);
 
-        $session->load(['exam', 'exam.questions', 'answers' => function($q) {
-            $q->with('question');
-        }]);
+        $session->load([
+            'exam:id,title,time_limit,instructions,instructions_file,subject_id,teacher_id',
+            'exam.questions' => function ($query) {
+                $query->orderBy('exam_questions.order_index');
+            },
+            'answers' => function ($query) {
+                $query->with(['question:id,question_text,question_type,options']);
+            },
+        ]);
 
         return view('exams.take', compact('session'));
     }
@@ -238,36 +245,11 @@ class ExamSessionController extends Controller
                     'last_activity_at' => now(),
                 ]);
 
-                // Auto-grade all answers
-                $session->load('answers.question');
-                foreach ($session->answers as $answer) {
-                    if (!$answer->is_answered) {
-                        $answer->update([
-                            'is_correct' => false,
-                            'points_earned' => 0,
-                        ]);
-                        continue;
-                    }
-
-                    $answer->autoGrade();
-                }
-
-                // Calculate score
-                $totalEarned = $session->answers()->sum('points_earned') ?: 0;
-                $totalPossible = $session->answers()->sum('max_points') ?: 1; // Avoid division by zero
-                $score = ($totalEarned / $totalPossible) * 100;
-
-                $session->update([
-                    'score' => round($score, 2),
-                    'passed' => $score >= ($session->exam->passing_marks ?? 40),
-                ]);
-
                 DB::commit();
 
-                $session->loadMissing('student');
-                broadcast(new ExamEnded($session, 'completed'));
+                    // Dispatch async grading — frees the HTTP request immediately
+                    GradeExamSession::dispatch($session->id);
 
-                // Return success response
                 if ($request->wantsJson()) {
                     return response()->json([
                         'success' => true,
@@ -322,15 +304,16 @@ class ExamSessionController extends Controller
         $this->authorizeSession($session);
 
         $request->validate([
-            'type' => 'required|string',
+            'type' => 'required|in:tab_switch,window_blur,fullscreen_exit,tab_key,window_resize,page_navigation,new_tab_attempt,window_minimize,copy_attempt,paste_attempt,multiple_ips,time_manipulation,suspicious_activity',
             'description' => 'required|string',
             'metadata' => 'nullable|array',
         ]);
 
-        $violation = $session->logViolation(
-            $request->type,
-            $request->description,
-            $request->metadata ?? []
+        LogExamViolation::dispatch(
+            sessionId: $session->id,
+            type: $request->type,
+            description: $request->description,
+            metadata: $request->metadata ?? []
         );
 
         // Pause session on focus-loss type violations
@@ -348,22 +331,12 @@ class ExamSessionController extends Controller
             ]);
         }
 
-        // Notify teacher via broadcast
-        broadcast(new ViolationDetected($violation))->toOthers();
-
-        // If auto-terminated, return special response
-        if ($session->status === 'terminated') {
-            return response()->json([
-                'terminated' => true,
-                'reason' => 'Multiple violations detected',
-                'redirect' => route('dashboard'),
-            ]);
-        }
+        $projectedViolationCount = ((int) $session->violation_count) + 1;
 
         return response()->json([
             'success' => true,
-            'violation_count' => $session->violation_count,
-            'warning' => $session->violation_count >= 3 ?
+            'violation_count' => $projectedViolationCount,
+            'warning' => $projectedViolationCount >= 3 ?
                 'Warning: Further violations will terminate your exam.' : null,
         ]);
     }

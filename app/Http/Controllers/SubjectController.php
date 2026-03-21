@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Subject;
+use App\Services\SubjectService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -51,6 +52,8 @@ class SubjectController extends Controller
             'created_by' => Auth::id(),
         ]);
 
+        app(SubjectService::class)->invalidateCache();
+
         return redirect()->route('subjects.index')
             ->with('success', 'Subject created successfully.');
     }
@@ -88,6 +91,7 @@ class SubjectController extends Controller
         ]);
 
         $subject->update($validated);
+        app(SubjectService::class)->invalidateCache();
 
         return redirect()->route('subjects.index')
             ->with('success', 'Subject updated successfully.');
@@ -100,6 +104,7 @@ class SubjectController extends Controller
         }
 
         $subject->delete();
+        app(SubjectService::class)->invalidateCache();
 
         return redirect()->route('subjects.index')
             ->with('success', 'Subject deleted successfully.');

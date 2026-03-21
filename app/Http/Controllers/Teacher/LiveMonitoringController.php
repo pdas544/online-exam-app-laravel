@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Teacher;
 
+use App\Builders\ExamSessionBuilder;
 use App\Http\Controllers\Controller;
 use App\Models\Exam;
 use App\Models\ExamSession;
@@ -39,15 +40,13 @@ class LiveMonitoringController extends Controller
             abort(403);
         }
 
-        $sessions = $exam->sessions()
-            ->with('student')
-            ->withCount([
-                'answers as answered_answers_count' => function ($query) {
-                    $query->where('is_answered', true);
-                },
-            ])
-            ->whereIn('status', ['scheduled', 'in_progress', 'paused', 'completed', 'terminated'])
-            ->latest('updated_at')
+        $sessions = (new ExamSessionBuilder())
+            ->forExam($exam->id)
+            ->statuses(['scheduled', 'in_progress', 'paused', 'completed', 'terminated'])
+            ->withStudentDetails()
+            ->withAnsweredCount()
+            ->selectEssentialColumns(false)
+            ->latestBy('updated_at')
             ->get();
 
         return view('dashboard.teacher.monitoring.exam', compact('exam', 'sessions'));
@@ -62,15 +61,13 @@ class LiveMonitoringController extends Controller
             abort(403);
         }
 
-        $sessions = $exam->sessions()
-            ->with('student')
-            ->withCount([
-                'answers as answered_answers_count' => function ($query) {
-                    $query->where('is_answered', true);
-                },
-            ])
-            ->whereIn('status', ['scheduled', 'in_progress', 'paused', 'completed', 'terminated'])
-            ->latest('updated_at')
+        $sessions = (new ExamSessionBuilder())
+            ->forExam($exam->id)
+            ->statuses(['scheduled', 'in_progress', 'paused', 'completed', 'terminated'])
+            ->withStudentDetails()
+            ->withAnsweredCount()
+            ->selectEssentialColumns()
+            ->latestBy('updated_at')
             ->get()
             ->map(function ($session) {
                 $liveTimeSpent = $session->time_spent;

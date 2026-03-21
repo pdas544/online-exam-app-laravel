@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Exam;
 use App\Models\Subject;
 use App\Models\Question;
+use App\Services\ExamService;
+use App\Services\SubjectService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -80,7 +82,7 @@ class ExamController extends Controller
      */
     public function create()
     {
-        $subjects = Subject::orderBy('name')->get();
+        $subjects = app(SubjectService::class)->getAllSubjects();
         return view('exams.create', compact('subjects'));
     }
 
@@ -114,9 +116,7 @@ class ExamController extends Controller
     {
         $this->authorizeExam($exam);
 
-        $exam->load(['subject', 'teacher', 'questions' => function ($query) {
-            $query->orderBy('exam_questions.order_index');
-        }]);
+        $exam = app(ExamService::class)->getExamWithQuestions($exam);
 
         // Group questions by type for statistics
         $questionsByType = $exam->questions->groupBy('question_type');
@@ -140,7 +140,7 @@ class ExamController extends Controller
     {
         $this->authorizeExam($exam);
 
-        $subjects = Subject::orderBy('name')->get();
+        $subjects = app(SubjectService::class)->getAllSubjects();
         return view('exams.edit', compact('exam', 'subjects'));
     }
 
@@ -166,6 +166,7 @@ class ExamController extends Controller
         }
 
         $exam->update($validated);
+        app(ExamService::class)->invalidateExamCache($exam);
 
         return redirect()->route('exams.show', $exam)
             ->with('success', 'Exam updated successfully.');
@@ -186,6 +187,7 @@ class ExamController extends Controller
 
         // Detach all questions first
         $exam->questions()->detach();
+        app(ExamService::class)->invalidateExamCache($exam);
 
         // Delete the exam
         $exam->delete();
@@ -254,6 +256,8 @@ class ExamController extends Controller
             $exam->updateTotalMarks();
         });
 
+        app(ExamService::class)->invalidateExamCache($exam);
+
         return back()->with('success', 'Question added to exam successfully.');
     }
 
@@ -277,6 +281,8 @@ class ExamController extends Controller
             $exam->updateTotalMarks();
         });
 
+        app(ExamService::class)->invalidateExamCache($exam);
+
         return back()->with('success', 'Question removed from exam successfully.');
     }
 
@@ -299,6 +305,8 @@ class ExamController extends Controller
             }
         });
 
+        app(ExamService::class)->invalidateExamCache($exam);
+
         return response()->json(['success' => true, 'message' => 'Questions reordered successfully.']);
     }
 
@@ -320,6 +328,8 @@ class ExamController extends Controller
 
             $exam->updateTotalMarks();
         });
+
+        app(ExamService::class)->invalidateExamCache($exam);
 
         return response()->json([
             'success' => true,
@@ -359,6 +369,8 @@ class ExamController extends Controller
 
             $exam->updateTotalMarks();
         });
+
+        app(ExamService::class)->invalidateExamCache($exam);
 
         return back()->with('success', count($newQuestionIds) . ' questions added to exam successfully.');
     }

@@ -160,7 +160,7 @@
                             <h5 class="card-title">Average Progress</h5>
                             @php
                                 $avgProgress = $sessions->avg(function($s) {
-                                    $answered = $s->answers()->where('is_answered', true)->count();
+                                    $answered = $s->answered_answers_count ?? 0;
                                     return $s->total_questions > 0 ? ($answered / $s->total_questions) * 100 : 0;
                                 });
                             @endphp
