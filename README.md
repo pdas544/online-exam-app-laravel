@@ -117,36 +117,6 @@ The **Online Exam Application** is a web-based platform designed to facilitate s
 
 ---
 
-
-```markdown
-
-## 🛠️ Tech Stack
-
-### Core Technologies
-- **Framework**: Laravel 12
-- **Frontend**: Bootstrap 5.3.8, Vite
-- **Backend**: PHP 8.2+
-- **Database**: PostgreSQL
-- **Real-time**: Laravel Reverb
-- **Authentication**: Built-in Laravel Auth
-
-### Development Tools
-- **Package Manager**: Composer
-- **Build Tool**: Vite
-- **Testing**: PHPUnit
-
-## 📦 Installation
-
-### Prerequisites
-
-Before you begin, ensure you have the following installed:
-- [PHP](https://www.php.net/downloads.php) 8.2+
-- [Composer](https://getcomposer.org/download/)
-- [Node.js](https://nodejs.org/) 18+
-- [PostgreSQL](https://www.postgresql.org/download/) 12+
-- [Git](https://git-scm.com/downloads)
-```
-
 ### Quick Start
 
 1. **Clone the repository**:
@@ -215,10 +185,7 @@ Before you begin, ensure you have the following installed:
 
 ## 🎯 Usage
 
-## 🚀 Getting Started
-
-Ready to get started? Follow these steps:
-
+```
 1. **Install the application** as described above
 2. **Set up your database** with the provided migrations
 3. **Create your first exam** and start testing
