@@ -145,6 +145,7 @@ Before you begin, ensure you have the following installed:
 - [Node.js](https://nodejs.org/) 18+
 - [PostgreSQL](https://www.postgresql.org/download/) 12+
 - [Git](https://git-scm.com/downloads)
+```
 
 ### Quick Start
 
