@@ -118,7 +118,6 @@ The **Online Exam Application** is a web-based platform designed to facilitate s
 ---
 
 
-
 ```markdown
 
 ## 🛠️ Tech Stack
@@ -206,24 +205,24 @@ Before you begin, ensure you have the following installed:
    ```
    php artisan serve
    ```
-```
+   
+10. **Start Reverb server**
+    ```
+    php artisan reverb: start
+    ```
+
 
 ## 🎯 Usage
 
-### Basic Workflow
+## 🚀 Getting Started
 
-#### For Teachers:
-1. **Create Subjects**: Organize your curriculum
-2. **Add Questions**: Build a comprehensive question bank
-3. **Create Exams**: Combine questions into exams with custom settings
-4. **Schedule Exams**: Set start and end times
-5. **Monitor Exams**: Watch student progress in real-time
+Ready to get started? Follow these steps:
 
-#### For Students:
-1. **Access Available Exams**: View exams that are open for participation
-2. **Start Exams**: Begin your exam when scheduled
-3. **Answer Questions**: Complete the exam within the time limit
-4. **View Results**: Check your performance after completion
+1. **Install the application** as described above
+2. **Set up your database** with the provided migrations
+3. **Create your first exam** and start testing
+4. **Invite students** to participate in your exams
+5. **Monitor progress** in real-time
 ```
 
 ### Testing Credentials
@@ -265,47 +264,6 @@ online-exam-app-laravel/
 ├── package.json          # JavaScript dependencies
 └── README.md             # This file
 ```
-
-## 🔧 Configuration
-
-### Environment Variables
-
-Copy `.env.example` to `.env` and configure your environment:
-
-```env
-# Application settings
-APP_NAME=Online Exam System
-APP_ENV=local
-APP_KEY=your-app-key
-APP_DEBUG=true
-APP_URL=http://localhost
-
-# Database settings
-DB_CONNECTION=pgsql
-DB_HOST=127.0.0.1
-DB_PORT=5432
-DB_DATABASE=exam_system
-DB_USERNAME=root
-DB_PASSWORD=Root@123
-
-# Authentication
-SESSION_DRIVER=database
-SESSION_LIFETIME=120
-
-# Broadcasting (Pusher)
-BROADCAST_DRIVER=pusher
-PUSHER_APP_ID=your_app_id
-PUSHER_APP_KEY=your_app_key
-PUSHER_APP_SECRET=your_app_secret
-PUSHER_APP_CLUSTER=your_cluster
-```
-
-### Customization Options
-
-1. **Change the UI theme**: Modify the Tailwind CSS configuration in `resources/css/app.css`
-2. **Adjust exam settings**: Modify the `Exam` model and related controllers
-3. **Add new question types**: Extend the `Question` model and add new validation rules
-4. **Change notification system**: Modify the event classes in `app/Events/`
 
 ## 🤝 Contributing
 
@@ -349,49 +307,7 @@ This project is open-sourced under the MIT License. See the [LICENSE](LICENSE) f
 
 ## 🐛 Issues & Support
 
-### Reporting Issues
-
-If you encounter any problems or have feature requests:
-
-1. Check if the issue has already been reported
-2. Open a new issue on GitHub with:
-   - A clear title describing the issue
-   - Detailed steps to reproduce
-   - Expected behavior
-   - Actual behavior
-   - Any relevant error messages
-
-### Getting Help
-
-- Join our [Discord community](https://discord.gg/your-server)
-- Ask questions on [Stack Overflow](https://stackoverflow.com) with the `laravel-exam` tag
-- Check our [documentation](https://github.com/yourusername/online-exam-app-laravel/wiki)
-
-## 🗺️ Roadmap
-
-### Planned Features
-
-- **Mobile App**: iOS and Android applications
-- **Advanced Analytics**: Detailed exam performance reports
-- **AI Grading**: Automated grading for certain question types
-- **Collaborative Exams**: Group exam functionality
-- **Exam Templates**: Reusable exam templates
-- **Multi-language Support**: Localization for different languages
-
 ### Known Issues
 
 - [Issue #1]: Some edge cases in real-time monitoring
 - [Issue #2]: Mobile responsiveness in exam interface
-
-## 🚀 Getting Started
-
-Ready to get started? Follow these steps:
-
-1. **Install the application** as described above
-2. **Set up your database** with the provided migrations
-3. **Create your first exam** and start testing
-4. **Invite students** to participate in your exams
-5. **Monitor progress** in real-time
-
-Join us in building the future of online education with this powerful exam management system!
-```
