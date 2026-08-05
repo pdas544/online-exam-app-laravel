@@ -1,6 +1,6 @@
-# **Online Exam Application (Laravel-Based System)**
+# **Online Exam Application**
 
-The **Online Exam Application** is a web-based platform designed to facilitate secure, real-time, and scalable online examinations for educational institutions. Built using **Laravel, PostgreSQL, Bootstrap, and real-time broadcasting (Pusher)**, the system enables teachers to create, manage, and monitor exams while students can take them remotely with proctoring capabilities.
+The **Online Exam Application** is a web-based platform designed to facilitate secure, real-time, and scalable online examinations for educational institutions. Built using **Laravel, PostgreSQL, Bootstrap, with real-time monitoring and analytics**.
 
 ## **Objectives**
 1. **Streamline Exam Administration**
@@ -21,8 +21,8 @@ The **Online Exam Application** is a web-based platform designed to facilitate s
    - Provide **live alerts** for suspicious behavior (e.g., rapid answer changes, session time violations).
 
 5. **Ensure Scalability & Security**
-   - Handle **large-scale exams** with minimal downtime.
-   - Protect against **data breaches, unauthorized access, and exam tampering**.
+   - Handle **100 concurrent students**.
+   - Protects and Logs **unauthorized access, violations and exam tampering**.
 
 ## **Expected Outcomes**
 | **Outcome**                     | **Business Value**                                                                 |
@@ -105,13 +105,13 @@ The **Online Exam Application** is a web-based platform designed to facilitate s
 ### **4.2 Technology Stack**
 | **Component**       | **Technology**                                                                 |
 |---------------------|-------------------------------------------------------------------------------|
-| **Framework**       | Laravel 12 (PHP)                                                            |
-| **Database**        | PostgreSQL (for scalability & performance)                                  |
+| **Framework**       | Laravel 12 (PHP 8.2)                                                            |
+| **Database**        | PostgreSQL                                 |
 | **Frontend**        | Bootstrap 5, Vite.js, Tailwind CSS                                          |
 | **Real-Time**       | Pusher + Laravel Reverb (for live monitoring & alerts)                      |
 | **Authentication**  | Laravel Sanctum (API tokens) + Session-based auth                           |
-| **Hosting**         | Local / Cloud (AWS/Azure/DigitalOcean) with auto-scaling                    |
-| **Caching**         | Redis (for session storage & performance optimization)                      |
+| **Hosting**         | Local                    |
+| **Caching**         | Redis                    |
 | **Testing**         | PHPUnit,                        |
 
 
@@ -271,11 +271,7 @@ This project is open-sourced under the MIT License. See the [LICENSE](LICENSE) f
 ## 👥 Authors & Contributors
 
 - **Maintainer**: Priyabrata Das
-- **Contributors**: [List of contributors]
 
 ## 🐛 Issues & Support
 
-### Known Issues
 
-- [Issue #1]: Some edge cases in real-time monitoring
-- [Issue #2]: Mobile responsiveness in exam interface
