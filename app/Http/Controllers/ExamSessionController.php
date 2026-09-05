@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\LogViolationRequest;
+use App\Http\Requests\SaveAnswerRequest;
 use App\Models\Exam;
 use App\Models\ExamSession;
 use App\Models\StudentAnswer;
@@ -31,16 +33,23 @@ class ExamSessionController extends Controller
             return back()->with('error', 'This exam is not available at this time.');
         }
 
-        // Check if student has already attempted
-        $existingSession = ExamSession::where('exam_id', $exam->id)
+        // Resume an existing active session if one exists
+        $activeSession = ExamSession::where('exam_id', $exam->id)
             ->where('student_id', Auth::id())
-            ->whereIn('status', ['scheduled', 'in_progress', 'paused', 'completed'])
+            ->whereIn('status', ['scheduled', 'in_progress', 'paused'])
             ->first();
 
-        if ($existingSession) {
-            if (in_array($existingSession->status, ['scheduled', 'in_progress', 'paused'], true)) {
-                return redirect()->route('exam.session.resume', $existingSession);
-            }
+        if ($activeSession) {
+            return redirect()->route('exam.session.resume', $activeSession);
+        }
+
+        // Enforce max attempts against completed sessions
+        $completedAttempts = ExamSession::where('exam_id', $exam->id)
+            ->where('student_id', Auth::id())
+            ->where('status', 'completed')
+            ->count();
+
+        if ($completedAttempts >= ($exam->max_attempts ?? 1)) {
             return back()->with('error', 'You have already completed this exam.');
         }
 
@@ -88,7 +97,7 @@ class ExamSessionController extends Controller
      */
     public function take(ExamSession $session)
     {
-        $this->authorizeSession($session);
+        $this->authorize('view', $session);
 
         $session->load(['exam', 'exam.questions', 'answers' => function($q) {
             $q->with('question');
@@ -102,10 +111,10 @@ class ExamSessionController extends Controller
      */
     public function resume(ExamSession $session)
     {
-        $this->authorizeSession($session);
+        $this->authorize('view', $session);
 
         if (!in_array($session->status, ['scheduled', 'in_progress', 'paused'], true)) {
-            return redirect()->route('dashboard')
+            return redirect()->route($this->dashboardRoute())
                 ->with('error', 'This exam session cannot be resumed.');
         }
 
@@ -115,15 +124,9 @@ class ExamSessionController extends Controller
     /**
      * Save answer (AJAX endpoint)
      */
-    public function saveAnswer(Request $request, ExamSession $session)
+    public function saveAnswer(SaveAnswerRequest $request, ExamSession $session)
     {
-        $this->authorizeSession($session);
-
-        $request->validate([
-            'question_id' => 'required|exists:questions,id',
-            'answer' => 'nullable',
-            'is_marked_for_review' => 'boolean',
-        ]);
+        $this->authorize('view', $session);
 
         $answer = StudentAnswer::where('exam_session_id', $session->id)
             ->where('question_id', $request->question_id)
@@ -154,7 +157,7 @@ class ExamSessionController extends Controller
     public function submit(Request $request, ExamSession $session)
     {
         try {
-            $this->authorizeSession($session);
+            $this->authorize('view', $session);
 
             if ($session->status !== 'in_progress') {
                 return response()->json(['error' => 'Exam already submitted'], 400);
@@ -240,29 +243,21 @@ class ExamSessionController extends Controller
      */
     public function result(ExamSession $session)
     {
-        $this->authorizeSession($session);
+        $this->authorize('view', $session);
 
         if ($session->status !== 'completed') {
             return redirect()->route('exam.session.take', $session);
         }
 
-        $session->load(['exam', 'answers.question', 'grade']);
-
-        return view('exam.result', compact('session'));
+        return redirect()->route('student.results.show', $session);
     }
 
     /**
      * Log violation (AJAX endpoint)
      */
-    public function logViolation(Request $request, ExamSession $session)
+    public function logViolation(LogViolationRequest $request, ExamSession $session)
     {
-        $this->authorizeSession($session);
-
-        $request->validate([
-            'type' => 'required|string',
-            'description' => 'required|string',
-            'metadata' => 'nullable|array',
-        ]);
+        $this->authorize('view', $session);
 
         $violation = $session->logViolation(
             $request->type,
@@ -287,7 +282,7 @@ class ExamSessionController extends Controller
             return response()->json([
                 'terminated' => true,
                 'reason' => 'Multiple violations detected',
-                'redirect' => route('dashboard'),
+                'redirect' => route($this->dashboardRoute()),
             ]);
         }
 
@@ -304,7 +299,7 @@ class ExamSessionController extends Controller
      */
     public function status(ExamSession $session)
     {
-        $this->authorizeSession($session);
+        $this->authorize('view', $session);
 
         $timeRemaining = $this->calculateTimeRemaining($session);
 
@@ -341,9 +336,7 @@ class ExamSessionController extends Controller
      */
     public function forceEnd(ExamSession $session)
     {
-        if (!Auth::user()->isAdmin() && Auth::id() !== $session->teacher_id) {
-            abort(403);
-        }
+        $this->authorize('forceEnd', $session);
 
         $session->update([
             'status' => 'terminated',
@@ -357,13 +350,11 @@ class ExamSessionController extends Controller
     }
 
     /**
-     * Authorize that the current user owns this session
+     * Dashboard route for the current user (no single `dashboard` route exists).
      */
-    private function authorizeSession(ExamSession $session)
+    private function dashboardRoute(): string
     {
-        if ($session->student_id !== Auth::id() && !Auth::user()->isAdmin()) {
-            abort(403, 'Unauthorized access to this exam session.');
-        }
+        return Auth::user()->isAdmin() ? 'admin.dashboard' : 'student.dashboard';
     }
 
     /**

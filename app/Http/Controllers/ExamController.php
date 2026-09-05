@@ -2,6 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AddExamQuestionRequest;
+use App\Http\Requests\BulkAddQuestionsRequest;
+use App\Http\Requests\ReorderQuestionsRequest;
+use App\Http\Requests\StoreExamRequest;
+use App\Http\Requests\UpdateQuestionPointsRequest;
 use App\Models\Exam;
 use App\Models\Subject;
 use App\Models\Question;
@@ -16,13 +21,7 @@ class ExamController extends Controller
      */
     public function __construct()
     {
-
-        $user = Auth::user();
-        if (!$user->isTeacher() && !$user->isAdmin()) {
-            abort(403, 'Unauthorized access. Teacher or Admin privileges required.');
-        }
-
-
+        //
     }
 
     /**
@@ -30,6 +29,8 @@ class ExamController extends Controller
      */
     public function index(Request $request)
     {
+        $this->authorize('viewAny', Exam::class);
+
         $user = Auth::user();
         $query = Exam::with(['subject', 'teacher']);
 
@@ -79,6 +80,8 @@ class ExamController extends Controller
      */
     public function create()
     {
+        $this->authorize('create', Exam::class);
+
         $subjects = Subject::orderBy('name')->get();
         return view('exams.create', compact('subjects'));
     }
@@ -86,9 +89,15 @@ class ExamController extends Controller
     /**
      * Store a newly created exam.
      */
-    public function store(Request $request)
+    public function store(StoreExamRequest $request)
     {
-        $validated = $this->validateExam($request);
+        $this->authorize('create', Exam::class);
+
+        $validated = $request->validated();
+
+        // Convert checkbox values (absent when unchecked)
+        $validated['shuffle_questions'] = $request->has('shuffle_questions');
+        $validated['shuffle_options'] = $request->has('shuffle_options');
 
         // Handle file upload
         if ($request->hasFile('instructions_file')) {
@@ -111,7 +120,7 @@ class ExamController extends Controller
      */
     public function show(Exam $exam)
     {
-        $this->authorizeExam($exam);
+        $this->authorize('view', $exam);
 
         $exam->load(['subject', 'teacher', 'questions' => function ($query) {
             $query->orderBy('exam_questions.order_index');
@@ -137,7 +146,7 @@ class ExamController extends Controller
      */
     public function edit(Exam $exam)
     {
-        $this->authorizeExam($exam);
+        $this->authorize('update', $exam);
 
         $subjects = Subject::orderBy('name')->get();
         return view('exams.edit', compact('exam', 'subjects'));
@@ -146,11 +155,15 @@ class ExamController extends Controller
     /**
      * Update the specified exam.
      */
-    public function update(Request $request, Exam $exam)
+    public function update(StoreExamRequest $request, Exam $exam)
     {
-        $this->authorizeExam($exam);
+        $this->authorize('update', $exam);
 
-        $validated = $this->validateExam($request, $exam);
+        $validated = $request->validated();
+
+        // Convert checkbox values (absent when unchecked)
+        $validated['shuffle_questions'] = $request->has('shuffle_questions');
+        $validated['shuffle_options'] = $request->has('shuffle_options');
 
         // Handle file upload
         if ($request->hasFile('instructions_file')) {
@@ -175,7 +188,7 @@ class ExamController extends Controller
      */
     public function destroy(Exam $exam)
     {
-        $this->authorizeExam($exam);
+        $this->authorize('delete', $exam);
 
         // Check if any student has taken this exam
         if ($exam->sessions()->whereIn('status', ['completed', 'in_progress'])->count() > 0) {
@@ -198,9 +211,7 @@ class ExamController extends Controller
      */
     public function manageQuestions(Exam $exam)
     {
-        if(!$this->authorizeExam($exam)){
-            abort(403, 'Unauthorized access to this exam.');
-        }
+        $this->authorize('update', $exam);
 
         $exam->load(['questions' => function ($query) {
             $query->orderBy('exam_questions.order_index');
@@ -225,14 +236,9 @@ class ExamController extends Controller
     /**
      * Add a question to the exam.
      */
-    public function addQuestion(Request $request, Exam $exam)
+    public function addQuestion(AddExamQuestionRequest $request, Exam $exam)
     {
-        $this->authorizeExam($exam);
-
-        $request->validate([
-            'question_id' => 'required|exists:questions,id',
-            'points_override' => 'nullable|integer|min:1|max:10',
-        ]);
+        $this->authorize('update', $exam);
 
         // Check if question already exists in exam
         if ($exam->questions()->where('question_id', $request->question_id)->exists()) {
@@ -261,7 +267,7 @@ class ExamController extends Controller
      */
     public function removeQuestion(Exam $exam, Question $question)
     {
-        $this->authorizeExam($exam);
+        $this->authorize('update', $exam);
 
         DB::transaction(function () use ($exam, $question) {
             $exam->questions()->detach($question->id);
@@ -282,15 +288,9 @@ class ExamController extends Controller
     /**
      * Update question order in exam (AJAX).
      */
-    public function reorderQuestions(Request $request, Exam $exam)
+    public function reorderQuestions(ReorderQuestionsRequest $request, Exam $exam)
     {
-        $this->authorizeExam($exam);
-
-        $request->validate([
-            'questions' => 'required|array',
-            'questions.*.id' => 'required|exists:questions,id',
-            'questions.*.order' => 'required|integer|min:1',
-        ]);
+        $this->authorize('update', $exam);
 
         DB::transaction(function () use ($exam, $request) {
             foreach ($request->questions as $item) {
@@ -304,13 +304,9 @@ class ExamController extends Controller
     /**
      * Update points for a question in exam (AJAX).
      */
-    public function updatePoints(Request $request, Exam $exam, Question $question)
+    public function updatePoints(UpdateQuestionPointsRequest $request, Exam $exam, Question $question)
     {
-        $this->authorizeExam($exam);
-
-        $request->validate([
-            'points' => 'required|integer|min:1|max:10',
-        ]);
+        $this->authorize('update', $exam);
 
         DB::transaction(function () use ($exam, $question, $request) {
             $exam->questions()->updateExistingPivot($question->id, [
@@ -330,14 +326,9 @@ class ExamController extends Controller
     /**
      * Bulk add questions to exam.
      */
-    public function bulkAddQuestions(Request $request, Exam $exam)
+    public function bulkAddQuestions(BulkAddQuestionsRequest $request, Exam $exam)
     {
-        $this->authorizeExam($exam);
-
-        $request->validate([
-            'question_ids' => 'required|array',
-            'question_ids.*' => 'exists:questions,id',
-        ]);
+        $this->authorize('update', $exam);
 
         $currentQuestionIds = $exam->questions->pluck('id')->toArray();
         $newQuestionIds = array_diff($request->question_ids, $currentQuestionIds);
@@ -362,57 +353,4 @@ class ExamController extends Controller
         return back()->with('success', count($newQuestionIds) . ' questions added to exam successfully.');
     }
 
-    /**
-     * Validate exam data.
-     */
-    private function validateExam(Request $request, Exam $exam = null)
-    {
-        $rules = [
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'instructions' => 'nullable|string',
-            'instructions_file' => 'nullable|file|mimes:pdf,doc,docx,txt|max:5120',
-            'subject_id' => 'required|exists:subjects,id',
-            'academic_year' => 'required|integer|min:2000|max:' . date('Y'),
-            'semester' => 'required|in:1,2,3,4,5,6,7,8',
-            'time_limit' => 'required|integer|min:5|max:480',
-            'shuffle_questions' => 'nullable|boolean',
-            'shuffle_options' => 'nullable|boolean',
-            'available_from' => 'nullable|date',
-            'available_to' => 'nullable|date|after:available_from',
-            'passing_marks' => 'required|integer|min:0',
-            'max_attempts' => 'required|integer|min:1|max:10',
-            'status' => 'required|in:draft,published,archived',
-        ];
-
-        $validated = $request->validate($rules);
-
-        // Convert checkbox values
-        $validated['shuffle_questions'] = $request->has('shuffle_questions');
-        $validated['shuffle_options'] = $request->has('shuffle_options');
-
-        return $validated;
-    }
-
-    /**
-     * Authorize that user can access/modify this exam.
-     */
-    private function authorizeExam(Exam $exam): bool
-    {
-        $user = Auth::user();
-
-        if (!$user) {
-            abort(403, 'Unauthenticated.');
-        }
-
-        if ($user->isAdmin()) {
-            return true;
-        }
-
-        if ($exam->teacher_id !== $user->id) {
-            abort(403, 'Unauthorized access to this exam.');
-        }
-
-        return true;
-    }
 }

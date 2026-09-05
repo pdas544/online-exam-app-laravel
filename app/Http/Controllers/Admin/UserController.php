@@ -3,10 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreUserRequest;
+use App\Models\Teacher;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
@@ -15,17 +16,9 @@ class UserController extends Controller
 
     }
 
-    // Helper method to check if user is admin
-    private function checkAdmin()
-    {
-        if (!auth()->user()->isAdmin()) {
-            abort(403, 'Unauthorized access. Admin privileges required.');
-        }
-    }
-
     public function index(Request $request)
     {
-        $this->checkAdmin();
+        $this->authorize('viewAny', User::class);
 
         $query = User::query();
 
@@ -38,8 +31,8 @@ class UserController extends Controller
         if ($request->has('search') && $request->search != '') {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'ilike', "%{$search}%")
-                    ->orWhere('email', 'ilike', "%{$search}%");
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
             });
         }
 
@@ -50,27 +43,32 @@ class UserController extends Controller
 
     public function create()
     {
-        $this->checkAdmin();
+        $this->authorize('create', User::class);
         return view('users.create');
     }
 
-    public function store(Request $request)
+    public function store(StoreUserRequest $request)
     {
-        $this->checkAdmin();
+        $this->authorize('create', User::class);
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:8|confirmed',
-            'role' => 'required|in:student,teacher,admin',
-        ]);
+        $validated = $request->validated();
 
-        User::create([
+        $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
             'role' => $validated['role'],
         ]);
+
+        // Create teacher profile if role is teacher
+        if ($validated['role'] === 'teacher') {
+            Teacher::create([
+                'user_id' => $user->id,
+                'name' => $validated['name'],
+                'department' => $validated['department'],
+                'designation' => $validated['designation'],
+            ]);
+        }
 
         return redirect()->route('users.index')
             ->with('success', 'User created successfully.');
@@ -78,26 +76,21 @@ class UserController extends Controller
 
     public function show(User $user)
     {
-        $this->checkAdmin();
+        $this->authorize('view', $user);
         return view('users.show', compact('user'));
     }
 
     public function edit(User $user)
     {
-        $this->checkAdmin();
+        $this->authorize('update', $user);
         return view('users.edit', compact('user'));
     }
 
-    public function update(Request $request, User $user)
+    public function update(StoreUserRequest $request, User $user)
     {
-        $this->checkAdmin();
+        $this->authorize('update', $user);
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
-            'password' => 'sometimes|nullable|string|min:8|confirmed',
-            'role' => 'required|in:student,teacher,admin',
-        ]);
+        $validated = $request->validated();
 
         $updateData = [
             'name' => $validated['name'],
@@ -111,13 +104,28 @@ class UserController extends Controller
 
         $user->update($updateData);
 
+        // Create or update teacher profile if role is teacher
+        if ($validated['role'] === 'teacher') {
+            Teacher::updateOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'name' => $validated['name'],
+                    'department' => $validated['department'],
+                    'designation' => $validated['designation'],
+                ]
+            );
+        } else {
+            // Delete teacher profile if role is no longer teacher
+            Teacher::where('user_id', $user->id)->delete();
+        }
+
         return redirect()->route('users.index')
             ->with('success', 'User updated successfully.');
     }
 
     public function destroy(User $user)
     {
-        $this->checkAdmin();
+        $this->authorize('delete', $user);
 
         if (auth()->id() === $user->id) {
             return redirect()->route('users.index')

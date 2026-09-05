@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Teacher;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\SendWarningRequest;
 use App\Models\Exam;
 use App\Models\ExamSession;
 use App\Events\ExamResumed;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class LiveMonitoringController extends Controller
@@ -35,9 +35,7 @@ class LiveMonitoringController extends Controller
      */
     public function monitor(Exam $exam)
     {
-        if (!Auth::user()->isAdmin() && $exam->teacher_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('update', $exam);
 
         $sessions = $exam->sessions()
             ->with('student')
@@ -58,9 +56,7 @@ class LiveMonitoringController extends Controller
      */
     public function getSessions(Exam $exam)
     {
-        if (!Auth::user()->isAdmin() && $exam->teacher_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('update', $exam);
 
         $sessions = $exam->sessions()
             ->with('student')
@@ -105,9 +101,7 @@ class LiveMonitoringController extends Controller
      */
     public function startExam(Exam $exam)
     {
-        if (!Auth::user()->isAdmin() && $exam->teacher_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('update', $exam);
 
         $sessions = $exam->sessions()
             ->where('status', 'scheduled')
@@ -132,15 +126,13 @@ class LiveMonitoringController extends Controller
     /**
      * Send warning to student
      */
-    public function sendWarning(Request $request, ExamSession $session)
+    public function sendWarning(SendWarningRequest $request, ExamSession $session)
     {
-        if (!Auth::user()->isAdmin() && $session->teacher_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('forceEnd', $session);
 
         broadcast(new \App\Events\TeacherWarning(
             $session,
-            $request->message ?? 'Please focus on your exam.'
+            $request->validated()['message'] ?? 'Please focus on your exam.'
         ))->toOthers();
 
         return response()->json(['success' => true]);
@@ -151,9 +143,7 @@ class LiveMonitoringController extends Controller
      */
     public function resumeSession(ExamSession $session)
     {
-        if (!Auth::user()->isAdmin() && $session->teacher_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('forceEnd', $session);
 
         if ($session->status === 'paused') {
             $session->update([
@@ -172,9 +162,7 @@ class LiveMonitoringController extends Controller
      */
     public function showSession(ExamSession $session)
     {
-        if (!Auth::user()->isAdmin() && $session->teacher_id !== Auth::id()) {
-            abort(403);
-        }
+        $this->authorize('forceEnd', $session);
 
         $session->load(['student', 'exam']);
 

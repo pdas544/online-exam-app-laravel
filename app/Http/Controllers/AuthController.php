@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Auth\LoginRequest;
+use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\Auth\VerifyRoleRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -21,14 +24,9 @@ class AuthController extends Controller
         return view('auth.register');
     }
 
-    public function login(Request $request)
+    public function login(LoginRequest $request)
     {
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
-        ]);
-
-        $credentials = $request->only('email', 'password');
+        $credentials = $request->validated();
 
         if (Auth::attempt($credentials, $request->filled('remember'))) {
             $request->session()->regenerate();
@@ -41,20 +39,15 @@ class AuthController extends Controller
         ])->onlyInput('email');
     }
 
-    public function register(Request $request)
+    public function register(RegisterRequest $request)
     {
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:8|confirmed',
-            'role' => 'required|in:student,teacher', // Prevent self-registration as admin
-        ]);
+        $validated = $request->validated();
 
         $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'role' => $request->role,
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
+            'role' => $validated['role'],
         ]);
 
         Auth::login($user);
@@ -79,19 +72,17 @@ class AuthController extends Controller
         return response()->json($request->user());
     }
 
-    public function verifyRole(Request $request)
+    public function verifyRole(VerifyRoleRequest $request)
     {
-        $request->validate([
-            'required_role' => 'required|in:student,teacher,admin'
-        ]);
+        $validated = $request->validated();
 
         $user = $request->user();
-        $hasRole = $user->hasRole($request->required_role);
+        $hasRole = $user->hasRole($validated['required_role']);
 
         return response()->json([
             'has_role' => $hasRole,
             'user_role' => $user->role,
-            'required_role' => $request->required_role
+            'required_role' => $validated['required_role']
         ]);
     }
 }

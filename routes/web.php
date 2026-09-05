@@ -15,15 +15,11 @@ use App\Http\Controllers\Teacher\LiveMonitoringController;
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\Dashboard\AdminDashboardController;
-//use App\Http\Controllers\Dashboard\TeacherDashboardController;
-//use App\Http\Controllers\Dashboard\StudentDashboardController;
+
 
 // Public routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
-//Route::get('/', function () {
-//    return view('welcome');
-//});
-// Authentication routes
+
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login']);
@@ -54,15 +50,16 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('users', UserController::class);
     Route::resource('subjects', SubjectController::class);
     Route::resource('exams', ExamController::class);
-    Route::resource('questions', QuestionController::class);
-     Route::post('/questions/{question}/duplicate', [QuestionController::class, 'duplicate'])->name('questions.duplicate');
-    // Optional: Bulk import route
+    // Custom question routes must be defined BEFORE the resource so they
+    // are not shadowed by `questions/{question}` (show).
     Route::get('questions/import', [QuestionController::class, 'import'])
         ->name('questions.import');
+    Route::resource('questions', QuestionController::class);
+     Route::post('/questions/{question}/duplicate', [QuestionController::class, 'duplicate'])->name('questions.duplicate');
 });
 
-    
-   
+
+
 
     // Exam management routes
     Route::middleware(['auth'])->group(function () {
@@ -103,9 +100,7 @@ Route::middleware(['auth', 'teacher'])->prefix('teacher')->name('teacher.')->gro
     Route::post('/monitor/session/{session}/resume', [LiveMonitoringController::class, 'resumeSession'])->name('monitor.resume');
 });
 
-// Broadcasting Authentication Route (required for private channels with Laravel Reverb)
-Route::middleware('auth')->post('/broadcasting/auth', function () {
-    return Illuminate\Support\Facades\Broadcast::auth();
-});
+// Broadcast auth (`/broadcasting/auth`) + `routes/channels.php` are wired
+// via `channels:` in `bootstrap/app.php` — do not redeclare here.
 
 

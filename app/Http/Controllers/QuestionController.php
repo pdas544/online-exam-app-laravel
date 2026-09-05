@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreQuestionRequest;
 use App\Models\Question;
 use App\Models\Subject;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
 
 class QuestionController extends Controller
 {
@@ -24,6 +24,8 @@ class QuestionController extends Controller
      */
     public function index(Request $request)
     {
+        $this->authorize('viewAny', Question::class);
+
         $user = Auth::user();
         $query = Question::with(['subject', 'creator'])->withCount('exams');
 
@@ -63,6 +65,8 @@ class QuestionController extends Controller
      */
     public function create()
     {
+        $this->authorize('create', Question::class);
+
         $user = Auth::user();
         $subjectQuery = Subject::query();
         if(!$user->isAdmin()){
@@ -75,9 +79,11 @@ class QuestionController extends Controller
     /**
      * Store a newly created question in storage.
      */
-    public function store(Request $request)
+    public function store(StoreQuestionRequest $request)
     {
-        $validated = $this->validateQuestion($request);
+        $this->authorize('create', Question::class);
+
+        $validated = $request->validated();
 
         // Handle options and correct answers based on question type
         $processedData = $this->processQuestionData($validated);
@@ -95,10 +101,7 @@ class QuestionController extends Controller
      */
     public function show(Question $question)
     {
-        // Authorization check
-        if (!$this->canAccessQuestion($question)) {
-            abort(403, 'Unauthorized action.');
-        }
+        $this->authorize('view', $question);
 
         $question->load(['subject', 'creator', 'exams']);
         return view('questions.show', compact('question'));
@@ -109,10 +112,7 @@ class QuestionController extends Controller
      */
     public function edit(Question $question)
     {
-        // Authorization check
-        if (!$this->canAccessQuestion($question)) {
-            abort(403, 'Unauthorized action.');
-        }
+        $this->authorize('view', $question);
 
         $user = Auth::user();
         $subjectQuery = Subject::query();
@@ -154,14 +154,11 @@ class QuestionController extends Controller
     /**
      * Update the specified question in storage.
      */
-    public function update(Request $request, Question $question)
+    public function update(StoreQuestionRequest $request, Question $question)
     {
-        // Authorization check
-        if (!$this->canAccessQuestion($question)) {
-            abort(403, 'Unauthorized action.');
-        }
+        $this->authorize('update', $question);
 
-        $validated = $this->validateQuestion($request, $question);
+        $validated = $request->validated();
         $processedData = $this->processQuestionData($validated);
 
         $question->update($processedData);
@@ -175,10 +172,7 @@ class QuestionController extends Controller
      */
     public function destroy(Question $question)
     {
-        // Authorization check
-        if (!$this->canAccessQuestion($question)) {
-            abort(403, 'Unauthorized action.');
-        }
+        $this->authorize('delete', $question);
 
         // Check if question is used in any exams
         if ($question->exams()->count() > 0) {
@@ -190,50 +184,6 @@ class QuestionController extends Controller
 
         return redirect()->route('questions.index')
             ->with('success', 'Question deleted successfully.');
-    }
-
-    /**
-     * Validate question data based on type
-     */
-    private function validateQuestion(Request $request, Question $question = null)
-    {
-        $rules = [
-            'subject_id' => 'required|exists:subjects,id',
-            'question_text' => 'required|string|min:10|max:2000',
-            'question_type' => [
-                'required',
-                Rule::in(['mcq_single', 'mcq_multiple', 'true_false', 'fill_blank'])
-            ],
-            'points' => 'required|integer|min:1|max:10',
-            'explanation' => 'nullable|string|max:1000',
-        ];
-
-        // Type-specific validations
-        switch ($request->question_type) {
-            case 'mcq_single':
-            case 'mcq_multiple':
-                $rules['options'] = 'required|array|min:2|max:6';
-                $rules['options.*'] = 'required|string|max:500';
-                $rules['correct_answers'] = 'required|array|min:1';
-                $rules['correct_answers.*'] = 'required|string|in:A,B,C,D,E,F';
-
-                if ($request->question_type === 'mcq_single') {
-                    $rules['correct_answers'] = 'required|array|size:1';
-                }
-                break;
-
-            case 'true_false':
-                $rules['correct_answers'] = 'required|array|size:1';
-                $rules['correct_answers.*'] = 'required|string|in:true,false';
-                break;
-
-            case 'fill_blank':
-                $rules['correct_answers'] = 'required|array|min:1|max:3';
-                $rules['correct_answers.*'] = 'required|string|max:200';
-                break;
-        }
-
-        return $request->validate($rules);
     }
 
     /**
@@ -270,20 +220,6 @@ class QuestionController extends Controller
         }
 
         return $processed;
-    }
-
-    /**
-     * Check if current user can access/modify this question
-     */
-    private function canAccessQuestion(Question $question): bool
-    {
-        $user = Auth::user();
-
-        if ($user->isAdmin()) {
-            return true;
-        }
-
-        return $question->created_by === $user->id;
     }
 
     /**

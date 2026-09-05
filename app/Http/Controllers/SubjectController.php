@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreSubjectRequest;
 use App\Models\Subject;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,6 +16,8 @@ class SubjectController extends Controller
 
     public function index(Request $request)
     {
+        $this->authorize('viewAny', Subject::class);
+
         $user = Auth::user();
         $query = Subject::query()->with('creator');
 
@@ -25,7 +28,7 @@ class SubjectController extends Controller
         //search by subject name
         if($request->filled('search')){
             $search = $request->input('search');
-            $query->where('name','ilike',"%{$search}%");
+            $query->where('name', 'like', "%{$search}%");
         }
 
         $subjects = $query->latest()->paginate(10)->withQueryString();
@@ -35,15 +38,16 @@ class SubjectController extends Controller
 
     public function create()
     {
+        $this->authorize('create', Subject::class);
+
         return view('subjects.create');
     }
 
-    public function store(Request $request)
+    public function store(StoreSubjectRequest $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-        ]);
+        $this->authorize('create', Subject::class);
+
+        $validated = $request->validated();
 
         Subject::create([
             'name' => $validated['name'],
@@ -57,10 +61,7 @@ class SubjectController extends Controller
 
     public function show(Subject $subject)
     {
-        // Check if user has permission to view this subject
-        if (!Auth::user()->isAdmin() && $subject->created_by != Auth::id()) {
-            abort(403, 'Unauthorized action.');
-        }
+        $this->authorize('view', $subject);
 
         $subject->load(['creator', 'questions', 'exams']);
         return view('subjects.show', compact('subject'));
@@ -69,23 +70,16 @@ class SubjectController extends Controller
 
     public function edit(Subject $subject)
     {
-        if (!Auth::user()->isAdmin() && $subject->created_by != Auth::id()) {
-            abort(403, 'Unauthorized action.');
-        }
+        $this->authorize('view', $subject);
 
         return view('subjects.edit', compact('subject'));
     }
 
-    public function update(Request $request, Subject $subject)
+    public function update(StoreSubjectRequest $request, Subject $subject)
     {
-        if (!Auth::user()->isAdmin() && $subject->created_by != Auth::id()) {
-            abort(403, 'Unauthorized action.');
-        }
+        $this->authorize('update', $subject);
 
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-        ]);
+        $validated = $request->validated();
 
         $subject->update($validated);
 
@@ -95,9 +89,7 @@ class SubjectController extends Controller
 
     public function destroy(Subject $subject)
     {
-        if (!Auth::user()->isAdmin() && $subject->created_by != Auth::id()) {
-            abort(403, 'Unauthorized action.');
-        }
+        $this->authorize('delete', $subject);
 
         $subject->delete();
 

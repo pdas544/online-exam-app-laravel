@@ -8,7 +8,6 @@ use App\Models\Question;
 use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Http\Request;
-use App\Http\Middleware\RoleMiddleware;
 
 class DashboardController extends Controller
 {
