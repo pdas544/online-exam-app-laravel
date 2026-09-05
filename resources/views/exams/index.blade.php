@@ -154,6 +154,10 @@
                                        class="btn btn-sm btn-info" title="View" data-bs-toggle="tooltip">
                                         <i class="bi bi-eye"></i>
                                     </a>
+                                    <a href="{{ route('monitor.exam', $exam) }}"
+                                       class="btn btn-sm btn-success" title="Monitor" data-bs-toggle="tooltip">
+                                        <i class="bi bi-play-circle"></i>
+                                    </a>
                                     <a href="{{ route('exams.edit', $exam) }}"
                                        class="btn btn-sm btn-warning" title="Edit" data-bs-toggle="tooltip">
                                         <i class="bi bi-pencil"></i>

@@ -107,6 +107,21 @@
                                 <div class="card-body">
                                     <p class="lead">{{ $answer->question->question_text }}</p>
 
+                                    @php
+                                        $rawAnswer = $answer->answer;
+                                        if (is_string($rawAnswer)) {
+                                            $decoded = json_decode($rawAnswer, true);
+                                            if (json_last_error() === JSON_ERROR_NONE) {
+                                                $rawAnswer = $decoded;
+                                            }
+                                        }
+
+                                        $normalizedAnswer = is_array($rawAnswer)
+                                            ? array_values($rawAnswer)
+                                            : ($rawAnswer === null || $rawAnswer === '' ? [] : [(string) $rawAnswer]);
+                                        $singleAnswer = $normalizedAnswer[0] ?? null;
+                                    @endphp
+
                                     @switch($answer->question->question_type)
                                         @case('mcq_single')
                                             @foreach($answer->question->options ?? [] as $letter => $option)
@@ -115,7 +130,7 @@
                                                            name="q{{ $answer->question_id }}"
                                                            id="q{{ $answer->question_id }}{{ $letter }}"
                                                            value="{{ $letter }}"
-                                                        {{ $answer->answer == $letter ? 'checked' : '' }}>
+                                                        {{ $singleAnswer === $letter ? 'checked' : '' }}>
                                                     <label class="form-check-label"
                                                            for="q{{ $answer->question_id }}{{ $letter }}">
                                                         <strong>{{ $letter }}.</strong> {{ $option }}
@@ -131,7 +146,7 @@
                                                            name="q{{ $answer->question_id }}[]"
                                                            id="q{{ $answer->question_id }}{{ $letter }}"
                                                            value="{{ $letter }}"
-                                                        {{ in_array($letter, $answer->answer ?? []) ? 'checked' : '' }}>
+                                                        {{ in_array($letter, $normalizedAnswer, true) ? 'checked' : '' }}>
                                                     <label class="form-check-label"
                                                            for="q{{ $answer->question_id }}{{ $letter }}">
                                                         <strong>{{ $letter }}.</strong> {{ $option }}
@@ -146,7 +161,7 @@
                                                        name="q{{ $answer->question_id }}"
                                                        id="q{{ $answer->question_id }}true"
                                                        value="true"
-                                                    {{ $answer->answer == 'true' ? 'checked' : '' }}>
+                                                        {{ $singleAnswer === 'true' ? 'checked' : '' }}>
                                                 <label class="form-check-label"
                                                        for="q{{ $answer->question_id }}true">
                                                     True
@@ -157,7 +172,7 @@
                                                        name="q{{ $answer->question_id }}"
                                                        id="q{{ $answer->question_id }}false"
                                                        value="false"
-                                                    {{ $answer->answer == 'false' ? 'checked' : '' }}>
+                                                        {{ $singleAnswer === 'false' ? 'checked' : '' }}>
                                                 <label class="form-check-label"
                                                        for="q{{ $answer->question_id }}false">
                                                     False
@@ -168,7 +183,7 @@
                                         @case('fill_blank')
                                             <input type="text" class="form-control"
                                                    name="q{{ $answer->question_id }}"
-                                                   value="{{ $answer->answer ?? '' }}"
+                                                  value="{{ $singleAnswer ?? '' }}"
                                                    placeholder="Your answer">
                                             @break
                                     @endswitch

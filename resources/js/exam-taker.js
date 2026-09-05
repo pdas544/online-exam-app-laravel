@@ -21,6 +21,10 @@ class ExamTaker {
         this.startLocked = !!config.startLocked;
         this.started = false;
         this.lobbyModal = null;
+        this.isSubmitting = false;
+        this.allowUnload = false;
+        this.remainingSeconds = null;
+        this.lastTimerSyncAt = 0;
 
         console.log('Total questions found:', this.totalQuestions);
 
@@ -403,8 +407,15 @@ class ExamTaker {
         }
     }
 
-    startExamFlow() {
+    async startExamFlow() {
         if (this.started) return;
+
+        const began = await this.beginExamSession();
+        if (!began) {
+            this.started = false;
+            return;
+        }
+
         this.started = true;
 
         this.setupAutoSave();
@@ -413,6 +424,36 @@ class ExamTaker {
 
         if (this.totalQuestions > 0) {
             this.showQuestion(0);
+        }
+    }
+
+    async beginExamSession() {
+        try {
+            const response = await fetch(`/exam/session/${this.sessionId}/begin`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': this.config.csrf,
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ _token: this.config.csrf }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || 'Failed to start exam session.');
+            }
+
+            const data = await response.json();
+            if (Number.isFinite(parseInt(data.time_remaining, 10))) {
+                this.remainingSeconds = Math.max(0, parseInt(data.time_remaining, 10));
+            }
+
+            return true;
+        } catch (error) {
+            console.error('Error beginning exam session:', error);
+            alert(error.message || 'Unable to start exam right now. Please try again.');
+            return false;
         }
     }
 
@@ -425,9 +466,11 @@ class ExamTaker {
     }
 
     handleFocusLoss(type, description) {
-        if (this.paused) return;
+        if (this.paused || this.isSubmitting || this.allowUnload) return;
         this.paused = true;
         this.resumeAllowed = false;
+
+        this.syncTimer('paused');
 
         // Stop timers while paused
         this.cleanup();
@@ -441,7 +484,9 @@ class ExamTaker {
             this.pauseModal.show();
         }
 
-        this.logViolation(type, description);
+        this.logViolation(type, description, {
+            remaining_time: this.remainingSeconds,
+        });
     }
 
     enableResume(message = 'Resume allowed') {
@@ -460,6 +505,8 @@ class ExamTaker {
             this.pauseModal.hide();
         }
 
+        this.syncTimer('in_progress');
+
         // Restart timers
         this.setupAutoSave();
         this.startTimer();
@@ -470,6 +517,7 @@ class ExamTaker {
 
         // Tab switching
         document.addEventListener('visibilitychange', () => {
+            if (this.isSubmitting || this.allowUnload) return;
             if (document.hidden) {
                 console.log('Tab switch detected');
                 this.handleFocusLoss('tab_switch', 'Student switched tabs');
@@ -478,12 +526,14 @@ class ExamTaker {
 
         // Window blur
         window.addEventListener('blur', () => {
+            if (this.isSubmitting || this.allowUnload) return;
             console.log('Window blur detected');
             this.handleFocusLoss('window_blur', 'Window lost focus');
         });
 
         // Fullscreen detection
         document.addEventListener('fullscreenchange', () => {
+            if (this.isSubmitting || this.allowUnload) return;
             if (!document.fullscreenElement) {
                 console.log('Fullscreen exit detected');
                 this.handleFocusLoss('fullscreen_exit', 'Exited fullscreen mode');
@@ -493,6 +543,7 @@ class ExamTaker {
 
         // Keyboard tab key
         document.addEventListener('keydown', (e) => {
+            if (this.isSubmitting || this.allowUnload) return;
             if (e.key === 'Tab') {
                 console.log('Tab key detected');
                 this.handleFocusLoss('tab_key', 'Pressed tab key');
@@ -501,12 +552,17 @@ class ExamTaker {
 
         // Window resize detection
         window.addEventListener('resize', () => {
+            if (this.isSubmitting || this.allowUnload) return;
             console.log('Window resize detected');
             this.logViolation('window_resize', 'Window was resized');
         });
 
         // Browser back button / Page navigation detection
         window.addEventListener('beforeunload', (e) => {
+            if (this.isSubmitting || this.allowUnload) {
+                return;
+            }
+
             if (this.started && !this.paused) {
                 console.log('Navigation attempt detected');
                 this.logViolation('page_navigation', 'Attempted to navigate or reload page');
@@ -515,6 +571,7 @@ class ExamTaker {
 
         // Detect new window/tab open attempt
         window.addEventListener('keydown', (e) => {
+            if (this.isSubmitting || this.allowUnload) return;
             if ((e.ctrlKey || e.metaKey) && (e.key === 'n' || e.key === 'N' || e.key === 't' || e.key === 'T')) {
                 console.log('New window/tab attempt detected');
                 e.preventDefault();
@@ -527,6 +584,7 @@ class ExamTaker {
         let lastHeight = window.innerHeight;
 
         window.addEventListener('resize', () => {
+            if (this.isSubmitting || this.allowUnload) return;
             const currentWidth = window.innerWidth;
             const currentHeight = window.innerHeight;
 
@@ -542,12 +600,14 @@ class ExamTaker {
 
         // Copy/Paste prevention
         document.addEventListener('copy', (e) => {
+            if (this.isSubmitting || this.allowUnload) return;
             e.preventDefault();
             console.log('Copy attempt detected');
             this.logViolation('copy_attempt', 'Attempted to copy');
         });
 
         document.addEventListener('paste', (e) => {
+            if (this.isSubmitting || this.allowUnload) return;
             e.preventDefault();
             console.log('Paste attempt detected');
             this.logViolation('paste_attempt', 'Attempted to paste');
@@ -559,7 +619,11 @@ class ExamTaker {
         });
     }
 
-    logViolation(type, description) {
+    logViolation(type, description, metadata = {}) {
+        if (this.isSubmitting || this.allowUnload) {
+            return;
+        }
+
         console.log(`⚠️ Violation Detected - Type: ${type}, Description: ${description}`);
 
         const data = {
@@ -567,7 +631,9 @@ class ExamTaker {
             description: description,
             metadata: {
                 url: window.location.href,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                remaining_time: this.remainingSeconds,
+                ...metadata,
             },
             _token: this.config.csrf
         };
@@ -654,37 +720,43 @@ class ExamTaker {
             return;
         }
 
-        let remainingSeconds = null;
-
         // Update display
         const updateDisplay = () => {
-            if (remainingSeconds === null || remainingSeconds < 0) {
+            if (this.remainingSeconds === null || this.remainingSeconds < 0) {
                 return;
             }
 
             // Decrement first
-            remainingSeconds--;
+            this.remainingSeconds--;
 
             // Then calculate and display
-            const minutes = Math.floor(remainingSeconds / 60);
-            const seconds = Math.floor(remainingSeconds % 60);
+            const minutes = Math.floor(this.remainingSeconds / 60);
+            const seconds = Math.floor(this.remainingSeconds % 60);
             timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
 
             // Warning colors
-            if (remainingSeconds <= 300) { // 5 minutes
+            if (this.remainingSeconds <= 300) { // 5 minutes
                 timerElement.classList.add('text-danger', 'fw-bold');
             }
 
+            // Periodically sync timer to backend for accurate pause/resume recovery.
+            const now = Date.now();
+            if (now - this.lastTimerSyncAt >= 10000) {
+                this.syncTimer('in_progress');
+                this.lastTimerSyncAt = now;
+            }
+
             // Auto-submit when time is up
-            if (remainingSeconds <= 0) {
+            if (this.remainingSeconds <= 0) {
                 clearInterval(this.timerInterval);
                 this.autoSubmit();
                 return;
             }
         };
 
-        // Fetch initial time from server once
-        fetch(`/exam/session/${this.sessionId}/status`)
+        // Fetch initial time from server once (unless already provided by begin call)
+        const timerPromise = this.remainingSeconds === null
+            ? fetch(`/exam/session/${this.sessionId}/status`)
             .then(response => {
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -693,23 +765,49 @@ class ExamTaker {
             })
             .then(data => {
                 // Ensure we have an integer value
-                remainingSeconds = Math.floor(parseInt(data.time_remaining, 10));
+                this.remainingSeconds = Math.floor(parseInt(data.time_remaining, 10));
                 
                 if (this.debug) {
-                    console.log(`⏱️ Initial time: ${remainingSeconds} seconds remaining`);
+                    console.log(`⏱️ Initial time: ${this.remainingSeconds} seconds remaining`);
                 }
+            })
+            : Promise.resolve();
 
-                // Display initial time immediately
-                const minutes = Math.floor(remainingSeconds / 60);
-                const seconds = Math.floor(remainingSeconds % 60);
+        timerPromise
+            .then(() => {
+                const minutes = Math.floor(this.remainingSeconds / 60);
+                const seconds = Math.floor(this.remainingSeconds % 60);
                 timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
 
-                // Start countdown every second
+                this.lastTimerSyncAt = Date.now();
                 this.timerInterval = setInterval(updateDisplay, 1000);
             })
             .catch(error => {
                 console.error('Error fetching timer status:', error);
             });
+    }
+
+    syncTimer(status = null) {
+        if (!Number.isFinite(this.remainingSeconds) || this.remainingSeconds < 0) {
+            return Promise.resolve();
+        }
+
+        return fetch(`/exam/session/${this.sessionId}/timer`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': this.config.csrf,
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+                remaining_time: Math.max(0, Math.floor(this.remainingSeconds)),
+                status,
+                _token: this.config.csrf,
+            }),
+            keepalive: true,
+        }).catch(error => {
+            console.warn('Timer sync failed:', error);
+        });
     }
 
     updateProgress(progress) {
@@ -740,65 +838,110 @@ class ExamTaker {
         setTimeout(() => warningDiv.remove(), 5000);
     }
 
-    submitExam() {
-            if (this.debug) console.log('Submit exam called');
+    async submitExam() {
+        if (this.debug) console.log('Submit exam called');
 
-            if (!confirm('Are you sure you want to submit your exam? This action cannot be undone.')) {
-                return;
-            }
+        if (!confirm('Are you sure you want to submit your exam? This action cannot be undone.')) {
+            return;
+        }
 
-            // Clean up intervals
-            this.cleanup();
+        this.isSubmitting = true;
+        this.paused = true;
 
-            // Show loading state
-            const submitBtn = document.getElementById('submit-exam');
-            const originalText = submitBtn.innerHTML;
+        // Clean up intervals
+        this.cleanup();
+
+        // Show loading state
+        const submitBtn = document.getElementById('submit-exam');
+        const originalText = submitBtn ? submitBtn.innerHTML : '';
+        if (submitBtn) {
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting...';
+        }
 
-            fetch(`/exam/session/${this.sessionId}/submit`, {
+        try {
+            const answers = this.collectAllAnswers();
+            await this.syncTimer('in_progress');
+
+            const response = await fetch(`/exam/session/${this.sessionId}/submit`, {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': this.config.csrf,
                     'Accept': 'application/json',
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({}) // Send empty object if needed
-            })
-                .then(async response => {
-                    console.log('Submit response status:', response.status);
+                body: JSON.stringify({
+                    answers,
+                    remaining_time: Number.isFinite(this.remainingSeconds) ? Math.max(0, Math.floor(this.remainingSeconds)) : null,
+                    _token: this.config.csrf,
+                }),
+            });
 
-                    // Try to parse as JSON first
-                    const contentType = response.headers.get('content-type');
-                    if (contentType && contentType.includes('application/json')) {
-                        const data = await response.json();
-                        if (response.ok) {
-                            if (data.redirect) {
-                                window.location.href = data.redirect;
-                            } else {
-                                window.location.href = '/student/dashboard';
-                            }
-                        } else {
-                            throw new Error(data.error || 'Submit failed');
-                        }
-                    } else {
-                        // Not JSON - might be a redirect
-                        if (response.redirected) {
-                            window.location.href = response.url;
-                        } else {
-                            const text = await response.text();
-                            console.error('Non-JSON response:', text.substring(0, 200));
-                            throw new Error('Server returned non-JSON response');
-                        }
-                    }
-                })
-                .catch(error => {
-                    console.error('Error submitting exam:', error);
-                    alert('Failed to submit exam: ' + error.message);
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalText;
-                });
+            console.log('Submit response status:', response.status);
+
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Submit failed');
+                }
+
+                this.allowUnload = true;
+                window.location.href = data.redirect || '/student/dashboard';
+                return;
+            }
+
+            if (response.redirected) {
+                this.allowUnload = true;
+                window.location.href = response.url;
+                return;
+            }
+
+            const text = await response.text();
+            console.error('Non-JSON response:', text.substring(0, 200));
+            throw new Error('Server returned non-JSON response');
+        } catch (error) {
+            console.error('Error submitting exam:', error);
+            alert('Failed to submit exam: ' + error.message);
+            this.isSubmitting = false;
+            this.paused = false;
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+            this.setupAutoSave();
+            this.startTimer();
         }
+    }
+
+    collectAllAnswers() {
+        const payload = {};
+        const questionCards = document.querySelectorAll('.question-card');
+
+        questionCards.forEach(card => {
+            const questionId = card.dataset.questionId;
+            if (!questionId) return;
+
+            const checkedRadio = card.querySelector('input[type="radio"]:checked');
+            if (checkedRadio) {
+                payload[questionId] = checkedRadio.value;
+                return;
+            }
+
+            const checkboxes = card.querySelectorAll('input[type="checkbox"]:checked');
+            if (checkboxes.length > 0) {
+                payload[questionId] = Array.from(checkboxes).map(input => input.value);
+                return;
+            }
+
+            const textInput = card.querySelector('input[type="text"], textarea');
+            if (textInput) {
+                payload[questionId] = textInput.value || null;
+            }
+        });
+
+        return payload;
+    }
 
 
     // Add manual save button functionality
@@ -837,6 +980,10 @@ class ExamTaker {
     // Handle page unload (pause exam)
     setupBeforeUnload() {
         window.addEventListener('beforeunload', (e) => {
+            if (this.allowUnload || this.isSubmitting) {
+                return;
+            }
+
             if (this.sessionId && this.config.autoSaveInterval) {
                 // Auto-save current state
                 const currentCard = document.querySelector('.question-card:not(.d-none)');
@@ -848,6 +995,8 @@ class ExamTaker {
                         }
                     });
                 }
+
+                this.syncTimer(this.paused ? 'paused' : 'in_progress');
 
                 // Show confirmation message
                 e.preventDefault();
