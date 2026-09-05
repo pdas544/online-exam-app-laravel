@@ -44,12 +44,37 @@
                             <div class="row mb-3">
                                 <label for="role" class="col-md-4 col-form-label text-md-end">Role</label>
                                 <div class="col-md-6">
-                                    <select id="role" class="form-control @error('role') is-invalid @enderror" name="role" required>
-                                        <option value="student" {{ old('role', $user->role) == 'student' ? 'selected' : '' }}>Student</option>
-                                        <option value="teacher" {{ old('role', $user->role) == 'teacher' ? 'selected' : '' }}>Teacher</option>
+                                    <select id="role" class="form-control @error('role') is-invalid @enderror" name="role" required onchange="toggleTeacherFields()">
                                         <option value="admin" {{ old('role', $user->role) == 'admin' ? 'selected' : '' }}>Admin</option>
+                                        <option value="teacher" {{ old('role', $user->role) == 'teacher' ? 'selected' : '' }}>Teacher</option>
                                     </select>
                                     @error('role')
+                                    <span class="invalid-feedback" role="alert">
+                                        <strong>{{ $message }}</strong>
+                                    </span>
+                                    @enderror
+                                </div>
+                            </div>
+
+                            <div class="row mb-3 teacher-fields" id="teacher-fields">
+                                <label for="department" class="col-md-4 col-form-label text-md-end">Department</label>
+                                <div class="col-md-6">
+                                    <input id="department" type="text" class="form-control @error('department') is-invalid @enderror"
+                                           name="department" value="{{ old('department', $user->teacher->department ?? '') }}">
+                                    @error('department')
+                                    <span class="invalid-feedback" role="alert">
+                                        <strong>{{ $message }}</strong>
+                                    </span>
+                                    @enderror
+                                </div>
+                            </div>
+
+                            <div class="row mb-3 teacher-fields" id="designation-fields">
+                                <label for="designation" class="col-md-4 col-form-label text-md-end">Designation</label>
+                                <div class="col-md-6">
+                                    <input id="designation" type="text" class="form-control @error('designation') is-invalid @enderror"
+                                           name="designation" value="{{ old('designation', $user->teacher->designation ?? '') }}">
+                                    @error('designation')
                                     <span class="invalid-feedback" role="alert">
                                         <strong>{{ $message }}</strong>
                                     </span>
@@ -90,4 +115,30 @@
             </div>
         </div>
     </div>
+
+    @push('scripts')
+    <script>
+        function toggleTeacherFields() {
+            const role = document.getElementById('role').value;
+            const teacherFields = document.querySelectorAll('.teacher-fields');
+            const isTeacher = role === 'teacher';
+
+            teacherFields.forEach(field => {
+                // field.style.display = isTeacher ? 'block' : 'none';
+                const inputs = field.querySelectorAll('input');
+                inputs.forEach(input => {
+                    if (isTeacher) {
+                        input.setAttribute('required', 'required');
+                    } else {
+                        input.removeAttribute('required');
+                        input.value = '';
+                    }
+                });
+            });
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', toggleTeacherFields);
+    </script>
+    @endpush
 @endsection

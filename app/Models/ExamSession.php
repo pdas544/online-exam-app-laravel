@@ -69,11 +69,6 @@ class ExamSession extends Model
         return $this->hasMany(ViolationLog::class);
     }
 
-    public function grade()
-    {
-        return $this->hasOne(Grade::class, 'exam_session_id');
-    }
-
     // Scopes
     public function scopeActive($query)
     {
