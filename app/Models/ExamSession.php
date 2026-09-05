@@ -98,12 +98,14 @@ class ExamSession extends Model
 
     public function timeRemaining(): int
     {
-        if (!$this->exam || !$this->started_at) {
+        if (! $this->exam || ! $this->started_at) {
             return 0;
         }
 
         $totalSeconds = $this->exam->time_limit * 60;
-        $elapsedSeconds = now()->diffInSeconds($this->started_at);
+        // Carbon 3 returns signed diffs by default — force absolute elapsed.
+        $elapsedSeconds = (int) $this->started_at->diffInSeconds(now(), true);
+
         return max(0, $totalSeconds - $elapsedSeconds);
     }
 
@@ -143,7 +145,7 @@ class ExamSession extends Model
 
     private function calculateSeverity(string $type): int
     {
-        return match($type) {
+        return match ($type) {
             'tab_switch', 'window_blur' => 1,
             'fullscreen_exit' => 2,
             'copy_attempt', 'paste_attempt' => 3,
