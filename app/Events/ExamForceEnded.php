@@ -3,7 +3,7 @@
 namespace App\Events;
 
 use App\Models\ExamSession;
-use Illuminate\Broadcasting\Channel;
+use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
@@ -28,7 +28,7 @@ class ExamForceEnded implements ShouldBroadcast
 
     public function broadcastOn()
     {
-        return [new Channel("student.{$this->studentId}")];
+        return [new PrivateChannel("student.{$this->studentId}")];
     }
 
     public function broadcastAs()

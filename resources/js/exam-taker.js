@@ -686,7 +686,7 @@ class ExamTaker {
         }
 
         // Listen for exam start approval on exam channel
-        window.Echo.channel(`exam.${this.examId}`)
+        window.Echo.private(`exam.${this.examId}`)
             .listen('.exam.start.allowed', (e) => {
                 if (String(e.sessionId) !== String(this.sessionId)) return;
                 console.log('Exam start approved:', e);
@@ -695,7 +695,7 @@ class ExamTaker {
 
         // Listen for student-specific commands
         if (this.config.studentId) {
-            window.Echo.channel(`student.${this.config.studentId}`)
+            window.Echo.private(`student.${this.config.studentId}`)
                 .listen('.teacher.warning', (e) => {
                     console.log('Teacher warning received:', e);
                     this.showWarning(e.message);

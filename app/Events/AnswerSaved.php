@@ -3,7 +3,7 @@
 namespace App\Events;
 
 use App\Models\StudentAnswer;
-use Illuminate\Broadcasting\Channel;
+use Illuminate\Broadcasting\PrivateChannel;
 
 class AnswerSaved extends BaseExamEvent
 {
@@ -35,7 +35,7 @@ class AnswerSaved extends BaseExamEvent
     public function broadcastOn()
     {
         // Only broadcast to the specific student's private channel
-        return [new Channel("student.{$this->getStudentId()}")];
+        return [new PrivateChannel("student.{$this->getStudentId()}")];
     }
 
     private function getStudentId()

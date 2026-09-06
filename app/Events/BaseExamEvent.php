@@ -2,7 +2,7 @@
 
 namespace App\Events;
 
-use Illuminate\Broadcasting\Channel;
+use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
@@ -28,8 +28,8 @@ abstract class BaseExamEvent implements ShouldBroadcast
     public function broadcastOn()
     {
         return [
-            new Channel("exam.{$this->examId}"),
-            new Channel("teacher.{$this->getTeacherId()}"),
+            new PrivateChannel("exam.{$this->examId}"),
+            new PrivateChannel("teacher.{$this->getTeacherId()}"),
         ];
     }
 
