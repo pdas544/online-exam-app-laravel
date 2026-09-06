@@ -49,6 +49,15 @@ class ViolationServiceTest extends TestCase
         $this->assertEquals(1, $this->session->fresh()->violation_count);
     }
 
+    public function test_navigation_violation_gets_severity_four(): void
+    {
+        $violation = (new ViolationService)->record(
+            $this->session->fresh(), 'page_navigation', 'Reload during exam'
+        );
+
+        $this->assertEquals(4, $violation->severity);
+    }
+
     public function test_fifth_violation_auto_terminates_session(): void
     {
         $service = new ViolationService;

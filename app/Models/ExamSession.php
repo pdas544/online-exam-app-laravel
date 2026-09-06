@@ -148,10 +148,10 @@ class ExamSession extends Model
     private function calculateSeverity(string $type): int
     {
         return match ($type) {
-            'tab_switch', 'window_blur' => 1,
-            'fullscreen_exit' => 2,
+            'tab_switch', 'window_blur', 'tab_key' => 1,
+            'fullscreen_exit', 'new_tab_attempt', 'window_resize' => 2,
             'copy_attempt', 'paste_attempt' => 3,
-            'multiple_ips', 'time_manipulation' => 4,
+            'page_navigation', 'window_minimize', 'multiple_ips', 'time_manipulation' => 4,
             'suspicious_activity' => 5,
             default => 1,
         };

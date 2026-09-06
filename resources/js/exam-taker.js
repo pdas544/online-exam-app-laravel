@@ -985,12 +985,15 @@ class ExamTaker {
             }
 
             if (this.sessionId && this.config.autoSaveInterval) {
-                // Auto-save current state
+                // Auto-save current state — but only real selections. A radio's
+                // .value is always truthy ('A'/'B'), so unchecked radios must
+                // be skipped or they overwrite the saved answer with null.
                 const currentCard = document.querySelector('.question-card:not(.d-none)');
                 if (currentCard) {
                     const inputs = currentCard.querySelectorAll('input, textarea');
                     inputs.forEach(input => {
-                        if (input.value || input.checked) {
+                        const isChoice = input.type === 'radio' || input.type === 'checkbox';
+                        if (isChoice ? input.checked : !!input.value) {
                             this.saveAnswer(input);
                         }
                     });
