@@ -26,7 +26,4 @@ abstract class BaseDashboardController extends Controller
     }
 
     abstract protected function checkAccess(): bool;
-    abstract protected function getStats(): array;
-    abstract protected function getQuickActions(): array;
-    abstract protected function getRecentActivity(): array;
 }

@@ -7,7 +7,6 @@ use App\Http\Controllers\Dashboard\TeacherDashboardController;
 use App\Http\Controllers\ExamController;
 use App\Http\Controllers\ExamSessionController;
 use App\Http\Controllers\HomeController;
-use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\QuestionController;
 use App\Http\Controllers\SubjectController;
