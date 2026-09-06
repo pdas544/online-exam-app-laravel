@@ -39,7 +39,7 @@ class ExamSessionController extends Controller
 
             return redirect()->route('exam.session.take', $session);
         } catch (\DomainException $e) {
-            return back()->with('error', $e->getMessage());
+            return back()->with('error', 'Could not start exam. Please try again.');
         } catch (\Exception $e) {
             return back()->with('error', 'Failed to start exam. Please try again.');
         }
@@ -57,6 +57,27 @@ class ExamSessionController extends Controller
         }]);
 
         return view('exams.take', compact('session'));
+    }
+
+    /**
+     * Begin the attempt (lobby proceed): scheduled → in_progress.
+     * Returns server-authoritative time remaining for timer seeding.
+     */
+    public function begin(ExamSession $session)
+    {
+        $this->authorize('view', $session);
+
+        try {
+            $session = $this->sessions->begin($session->fresh());
+        } catch (\DomainException $e) {
+            return response()->json(['error' => 'This exam session can no longer be taken.'], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'status' => $session->status,
+            'time_remaining' => $session->timeRemaining(),
+        ]);
     }
 
     /**
@@ -131,10 +152,10 @@ class ExamSessionController extends Controller
 
             } catch (\DomainException $e) {
                 if ($request->wantsJson()) {
-                    return response()->json(['error' => $e->getMessage()], 400);
+                    return response()->json(['error' => 'Could not submit exam. Please try again.'], 400);
                 }
 
-                return back()->with('error', $e->getMessage());
+                return back()->with('error', 'Could not submit exam. Please try again.');
             } catch (\Exception $e) {
                 \Log::error('Exam submission failed: '.$e->getMessage(), [
                     'session_id' => $session->id,
