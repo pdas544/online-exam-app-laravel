@@ -38,6 +38,7 @@ class ViolationService
 
         $session->update([
             'status' => 'paused',
+            'paused_at' => now(),
             'last_activity_at' => now(),
         ]);
 

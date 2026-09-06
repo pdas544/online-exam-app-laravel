@@ -117,12 +117,64 @@ class ExamSessionService
         });
     }
 
+    /**
+     * Begin the attempt: persist scheduled → in_progress and start the clock.
+     * No-op for sessions already underway; rejects terminal sessions.
+     *
+     * @throws DomainException when the session can no longer be taken.
+     */
+    public function begin(ExamSession $session): ExamSession
+    {
+        if (in_array($session->status, ['completed', 'terminated', 'expired'], true)) {
+            throw new DomainException('This exam session can no longer be taken.');
+        }
+
+        if ($session->status === 'scheduled') {
+            $session->update([
+                'status' => 'in_progress',
+                'started_at' => $session->started_at ?? now(),
+            ]);
+        }
+
+        return $session->fresh();
+    }
+
     public function forceEnd(ExamSession $session): void
     {
+        if (! in_array($session->status, ['scheduled', 'in_progress', 'paused'], true)) {
+            throw new DomainException('Only an active exam session can be terminated.');
+        }
+
         $session->update([
             'status' => 'terminated',
             'submitted_at' => now(),
         ]);
+    }
+
+    /**
+     * Resume a paused session: shift the clock forward by the paused
+     * duration so the timer continues where it left off.
+     *
+     * @throws DomainException when the session is not paused.
+     */
+    public function resume(ExamSession $session): ExamSession
+    {
+        if ($session->status !== 'paused') {
+            throw new DomainException('Only a paused exam session can be resumed.');
+        }
+
+        $pausedSeconds = $session->paused_at
+            ? (int) $session->paused_at->diffInSeconds(now(), true)
+            : 0;
+
+        $session->update([
+            'status' => 'in_progress',
+            'started_at' => ($session->started_at ?? now())->addSeconds($pausedSeconds),
+            'paused_at' => null,
+            'last_activity_at' => now(),
+        ]);
+
+        return $session->fresh();
     }
 
     /**

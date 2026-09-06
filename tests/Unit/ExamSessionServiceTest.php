@@ -151,4 +151,71 @@ class ExamSessionServiceTest extends TestCase
         $this->assertEquals('expired', $timedOut->fresh()->status);
         $this->assertEquals('in_progress', $fresh->fresh()->status);
     }
+
+    public function test_force_end_rejects_terminal_session(): void
+    {
+        $session = $this->service()->start($this->exam, $this->student->id);
+        $session->update(['status' => 'completed', 'submitted_at' => now()]);
+
+        $this->expectException(DomainException::class);
+
+        $this->service()->forceEnd($session->fresh());
+    }
+
+    public function test_begin_marks_scheduled_session_in_progress(): void
+    {
+        $session = $this->service()->start($this->exam, $this->student->id);
+        $this->assertEquals('scheduled', $session->status);
+        $this->assertNull($session->started_at);
+
+        $this->service()->begin($session->fresh());
+
+        $this->assertEquals('in_progress', $session->fresh()->status);
+        $this->assertNotNull($session->fresh()->started_at);
+    }
+
+    public function test_begin_leaves_active_session_untouched(): void
+    {
+        $session = $this->service()->start($this->exam, $this->student->id);
+        $startedAt = now()->subMinutes(10)->toDateTimeString();
+        $session->update(['status' => 'in_progress', 'started_at' => $startedAt]);
+
+        $this->service()->begin($session->fresh());
+
+        $this->assertEquals('in_progress', $session->fresh()->status);
+        $this->assertEquals($startedAt, $session->fresh()->started_at->toDateTimeString());
+    }
+
+    public function test_resume_shifts_clock_by_paused_duration(): void
+    {
+        $session = $this->service()->start($this->exam, $this->student->id);
+        $startedAt = now()->subMinutes(30);
+        $pausedAt = now()->subMinutes(10);
+        $session->update([
+            'status' => 'paused',
+            'started_at' => $startedAt->toDateTimeString(),
+            'paused_at' => $pausedAt->toDateTimeString(),
+        ]);
+
+        $this->service()->resume($session->fresh());
+
+        $resumed = $session->fresh();
+        $this->assertEquals('in_progress', $resumed->status);
+        $this->assertNull($resumed->paused_at);
+        // Clock shifted forward by the 10 paused minutes.
+        $this->assertEquals(
+            $startedAt->addMinutes(10)->toDateTimeString(),
+            $resumed->started_at->toDateTimeString()
+        );
+    }
+
+    public function test_resume_rejects_non_paused_session(): void
+    {
+        $session = $this->service()->start($this->exam, $this->student->id);
+        $session->update(['status' => 'completed', 'submitted_at' => now()]);
+
+        $this->expectException(DomainException::class);
+
+        $this->service()->resume($session->fresh());
+    }
 }

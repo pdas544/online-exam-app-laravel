@@ -2,15 +2,18 @@
 
 namespace App\Http\Controllers\Teacher;
 
+use App\Events\ExamResumed;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\SendWarningRequest;
 use App\Models\Exam;
 use App\Models\ExamSession;
-use App\Events\ExamResumed;
+use App\Services\ExamSessionService;
 use Illuminate\Support\Facades\Auth;
 
 class LiveMonitoringController extends Controller
 {
+    public function __construct(private ExamSessionService $sessions) {}
+
     /**
      * Show live monitoring dashboard
      */
@@ -145,11 +148,10 @@ class LiveMonitoringController extends Controller
     {
         $this->authorize('forceEnd', $session);
 
-        if ($session->status === 'paused') {
-            $session->update([
-                'status' => 'in_progress',
-                'last_activity_at' => now(),
-            ]);
+        try {
+            $session = $this->sessions->resume($session);
+        } catch (\DomainException $e) {
+            return response()->json(['error' => 'Only a paused exam session can be resumed.'], 422);
         }
 
         broadcast(new ExamResumed($session->id, $session->student_id))->toOthers();

@@ -16,6 +16,7 @@ class ExamSession extends Model
         'status',
         'started_at',
         'submitted_at',
+        'paused_at',
         'time_spent',
         'remaining_time',
         'current_question_index',
@@ -33,6 +34,7 @@ class ExamSession extends Model
     protected $casts = [
         'started_at' => 'datetime',
         'submitted_at' => 'datetime',
+        'paused_at' => 'datetime',
         'last_activity_at' => 'datetime',
         'answered_questions' => 'array',
         'time_spent' => 'integer',

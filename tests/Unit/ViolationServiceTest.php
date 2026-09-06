@@ -71,6 +71,7 @@ class ViolationServiceTest extends TestCase
 
         $this->assertTrue($paused);
         $this->assertEquals('paused', $this->session->fresh()->status);
+        $this->assertNotNull($this->session->fresh()->paused_at);
     }
 
     public function test_non_focus_violation_does_not_pause(): void
