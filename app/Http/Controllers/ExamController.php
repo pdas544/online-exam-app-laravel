@@ -12,6 +12,7 @@ use App\Models\Subject;
 use App\Models\Question;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class ExamController extends Controller
@@ -245,6 +246,12 @@ class ExamController extends Controller
             return back()->with('error', 'Question already exists in this exam.');
         }
 
+        // Question must belong to the exam's subject
+        $question = Question::findOrFail($request->question_id);
+        if ($question->subject_id !== $exam->subject_id) {
+            return back()->with('error', 'Question does not belong to this exam\'s subject.');
+        }
+
         // Get the next order index
         $nextOrder = $exam->questions()->max('order_index') ?? 0;
         $nextOrder++;
@@ -269,6 +276,10 @@ class ExamController extends Controller
     {
         $this->authorize('update', $exam);
 
+        if (! $exam->questions()->where('question_id', $question->id)->exists()) {
+            abort(404);
+        }
+
         DB::transaction(function () use ($exam, $question) {
             $exam->questions()->detach($question->id);
 
@@ -292,6 +303,14 @@ class ExamController extends Controller
     {
         $this->authorize('update', $exam);
 
+        // Reorder set must match the exam's attached question set exactly
+        $requestedIds = collect($request->questions)->pluck('id')->sort()->values()->toArray();
+        $attachedIds = $exam->questions()->pluck('question_id')->sort()->values()->toArray();
+
+        if ($requestedIds !== $attachedIds) {
+            return response()->json(['error' => 'Question set does not match this exam.'], 422);
+        }
+
         DB::transaction(function () use ($exam, $request) {
             foreach ($request->questions as $item) {
                 $exam->questions()->updateExistingPivot($item['id'], ['order_index' => $item['order']]);
@@ -307,6 +326,10 @@ class ExamController extends Controller
     public function updatePoints(UpdateQuestionPointsRequest $request, Exam $exam, Question $question)
     {
         $this->authorize('update', $exam);
+
+        if (! $exam->questions()->where('question_id', $question->id)->exists()) {
+            abort(404);
+        }
 
         DB::transaction(function () use ($exam, $question, $request) {
             $exam->questions()->updateExistingPivot($question->id, [
@@ -335,6 +358,15 @@ class ExamController extends Controller
 
         if (empty($newQuestionIds)) {
             return back()->with('info', 'All selected questions are already in the exam.');
+        }
+
+        // Every question must belong to the exam's subject
+        $mismatched = Question::whereIn('id', $newQuestionIds)
+            ->where('subject_id', '!=', $exam->subject_id)
+            ->count();
+
+        if ($mismatched > 0) {
+            return back()->with('error', 'Some questions do not belong to this exam\'s subject.');
         }
 
         $nextOrder = $exam->questions()->max('order_index') ?? 0;

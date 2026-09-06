@@ -253,7 +253,11 @@ class ExamSessionController extends Controller
     {
         $this->authorize('forceEnd', $session);
 
-        $this->sessions->forceEnd($session);
+        try {
+            $this->sessions->forceEnd($session);
+        } catch (\DomainException $e) {
+            return back()->with('error', 'Only an active exam session can be terminated.');
+        }
 
         broadcast(new ExamEnded($session, 'terminated_by_teacher'))->toOthers();
         broadcast(new \App\Events\ExamForceEnded($session))->toOthers();
@@ -266,6 +270,12 @@ class ExamSessionController extends Controller
      */
     private function dashboardRoute(): string
     {
-        return Auth::user()->isAdmin() ? 'admin.dashboard' : 'student.dashboard';
+        $user = Auth::user();
+
+        return match (true) {
+            $user->isAdmin() => 'admin.dashboard',
+            $user->isTeacher() => 'teacher.dashboard',
+            default => 'student.dashboard',
+        };
     }
 }

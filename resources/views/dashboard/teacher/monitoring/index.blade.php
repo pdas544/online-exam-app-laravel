@@ -27,7 +27,7 @@
                                                 </p>
                                             </div>
                                             <div class="card-footer bg-light">
-                                                <a href="{{ route('monitor.exam', $exam) }}"
+                                                <a href="{{ route('teacher.monitor.exam', $exam) }}"
                                                    class="btn btn-primary btn-sm w-100">
                                                     <i class="bi bi-eye me-1"></i> Monitor Now
                                                 </a>
