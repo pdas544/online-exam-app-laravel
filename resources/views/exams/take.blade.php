@@ -65,22 +65,20 @@
                                 <div class="list-group">
                                     @foreach($session->answers as $index => $answer)
                                         <button class="list-group-item list-group-item-action nav-question d-flex justify-content-between align-items-center
-                                            @if($answer->is_answered && $answer->is_marked_for_review) list-group-item-warning
+                                            @if($answer->is_marked_for_review) palette-marked
                                             @elseif($answer->is_answered) list-group-item-success
-                                            @elseif($answer->is_marked_for_review) list-group-item-warning
+                                            @else palette-unanswered
                                             @endif"
                                                 data-target="{{ $answer->question_id }}"
                                                 data-index="{{ $index }}">
                                             <span>Question {{ $index + 1 }}</span>
                                             <span>
-                                                @if($answer->is_answered && $answer->is_marked_for_review)
-                                                    <i class="bi bi-bookmark-check-fill" title="Answered & Marked"></i>
+                                                @if($answer->is_marked_for_review)
+                                                    <i class="bi bi-bookmark-fill palette-marked-icon" title="Marked for Review"></i>
                                                 @elseif($answer->is_answered)
                                                     <i class="bi bi-check-circle-fill text-success" title="Answered"></i>
-                                                @elseif($answer->is_marked_for_review)
-                                                    <i class="bi bi-bookmark-fill text-warning" title="Marked for Review"></i>
                                                 @else
-                                                    <i class="bi bi-circle text-secondary" title="Not Answered"></i>
+                                                    <i class="bi bi-circle palette-unanswered-icon" title="Not Answered"></i>
                                                 @endif
                                             </span>
                                         </button>
@@ -288,6 +286,42 @@
         </div>
     </div>
 
+    <!-- Exam Submit Confirmation Modal -->
+    <div class="modal fade" id="examSubmitModal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Submit Exam?</h5>
+                </div>
+                <div class="modal-body">
+                    <p>Please review before submitting. This action cannot be undone.</p>
+                    <ul class="list-group">
+                        <li class="list-group-item list-group-item-success d-flex justify-content-between align-items-center">
+                            Answered
+                            <span class="badge bg-success rounded-pill" id="submit-answered-count">0</span>
+                        </li>
+                        <li class="list-group-item palette-marked d-flex justify-content-between align-items-center">
+                            Marked for Review
+                            <span class="badge rounded-pill" id="submit-marked-count" style="background-color: #e67e22;">0</span>
+                        </li>
+                        <li class="list-group-item palette-unanswered d-flex justify-content-between align-items-center">
+                            Not Answered
+                            <span class="badge bg-danger rounded-pill" id="submit-unanswered-count">0</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="cancel-submit-btn">
+                        Keep Working
+                    </button>
+                    <button type="button" class="btn btn-success" id="confirm-submit-btn">
+                        Confirm Submit
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
         <!-- Add this inline script at the bottom of the content section -->
         <script>
             console.log('🔴 Inline script executed');
@@ -324,9 +358,19 @@
             background-color: #d4edda;
             border-color: #c3e6cb;
         }
-        .question-palette-vertical .list-group-item.list-group-item-warning {
-            background-color: #fff3cd;
-            border-color: #ffeeba;
+        .question-palette-vertical .list-group-item.palette-marked {
+            background-color: #ffe5cc;
+            border-color: #ffcc99;
+        }
+        .question-palette-vertical .list-group-item.palette-marked .palette-marked-icon {
+            color: #e67e22;
+        }
+        .question-palette-vertical .list-group-item.palette-unanswered {
+            background-color: #f8d7da;
+            border-color: #f5c2c7;
+        }
+        .question-palette-vertical .list-group-item.palette-unanswered .palette-unanswered-icon {
+            color: #dc3545;
         }
         .question-palette-vertical .list-group-item.active {
             background-color: #007bff;

@@ -47,6 +47,7 @@ class ExamTaker {
         this.setupEventListeners();
         this.setupManualSave(); // Add this
         this.setupPauseModal();
+        this.setupSubmitModal();
         this.setupWebSocket();
         this.setupBeforeUnload(); // Add this
         this.setupLobbyModal();
@@ -231,7 +232,7 @@ class ExamTaker {
             _token: this.config.csrf
         };
 
-        fetch(`/exam/session/${this.sessionId}/answer`, {
+        return fetch(`/exam/session/${this.sessionId}/answer`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -315,26 +316,23 @@ class ExamTaker {
             questionCard.dataset.answered = isAnswered ? 'true' : 'false';
         }
 
-        // Update icon based on current status
+        // Update icon based on current status.
+        // Marked wins over answered; unanswered-unmarked paints red.
         const currentIsAnswered = questionCard ? questionCard.dataset.answered === 'true' : false;
         const currentIsMarked = isMarked !== null ? isMarked :
-            (paletteBtn.querySelector('.bi-bookmark-fill, .bi-bookmark-check-fill') !== null);
+            (paletteBtn.querySelector('.bi-bookmark-fill') !== null);
 
-        if (currentIsAnswered && currentIsMarked) {
-            icon.className = 'bi bi-bookmark-check-fill';
-            paletteBtn.classList.add('list-group-item-warning');
-            paletteBtn.classList.remove('list-group-item-success');
+        paletteBtn.classList.remove('list-group-item-success', 'palette-marked', 'palette-unanswered');
+
+        if (currentIsMarked) {
+            icon.className = 'bi bi-bookmark-fill palette-marked-icon';
+            paletteBtn.classList.add('palette-marked');
         } else if (currentIsAnswered) {
             icon.className = 'bi bi-check-circle-fill text-success';
             paletteBtn.classList.add('list-group-item-success');
-            paletteBtn.classList.remove('list-group-item-warning');
-        } else if (currentIsMarked) {
-            icon.className = 'bi bi-bookmark-fill text-warning';
-            paletteBtn.classList.add('list-group-item-warning');
-            paletteBtn.classList.remove('list-group-item-success');
         } else {
-            icon.className = 'bi bi-circle text-secondary';
-            paletteBtn.classList.remove('list-group-item-success', 'list-group-item-warning');
+            icon.className = 'bi bi-circle palette-unanswered-icon';
+            paletteBtn.classList.add('palette-unanswered');
         }
     }
 
@@ -378,6 +376,58 @@ class ExamTaker {
                 this.resumeExam();
             });
         }
+    }
+
+    setupSubmitModal() {
+        const confirmBtn = document.getElementById('confirm-submit-btn');
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', () => {
+                const modalEl = document.getElementById('examSubmitModal');
+                if (modalEl && window.bootstrap) {
+                    window.bootstrap.Modal.getInstance(modalEl)?.hide();
+                }
+                this.submitExam({ skipConfirm: true });
+            });
+        }
+    }
+
+    showSubmitModal() {
+        // Answered tallies every answered card (including marked ones);
+        // marked tallies flags; unanswered is the remainder.
+        let answered = 0;
+        document.querySelectorAll('.question-card').forEach(card => {
+            if (card.dataset.answered === 'true') answered++;
+        });
+        const marked = document.querySelectorAll('.nav-question.palette-marked').length;
+        const total = document.querySelectorAll('.nav-question').length;
+
+        document.getElementById('submit-answered-count').textContent = answered;
+        document.getElementById('submit-marked-count').textContent = marked;
+        document.getElementById('submit-unanswered-count').textContent = total - answered;
+
+        const modalEl = document.getElementById('examSubmitModal');
+        if (modalEl && window.bootstrap) {
+            new window.bootstrap.Modal(modalEl, { backdrop: 'static', keyboard: false }).show();
+        }
+    }
+
+    /**
+     * Push the currently visible card's selections, awaiting every save so
+     * the submit that follows grades exactly what the student sees.
+     */
+    async flushUnsavedAnswers() {
+        const currentCard = document.querySelector('.question-card:not(.d-none)');
+        if (!currentCard) return;
+
+        const pending = [];
+        currentCard.querySelectorAll('input, textarea').forEach(input => {
+            const isChoice = input.type === 'radio' || input.type === 'checkbox';
+            if (isChoice ? input.checked : !!input.value) {
+                pending.push(this.saveAnswer(input));
+            }
+        });
+
+        await Promise.all(pending);
     }
 
     setupLobbyModal() {
@@ -838,10 +888,13 @@ class ExamTaker {
         setTimeout(() => warningDiv.remove(), 5000);
     }
 
-    async submitExam() {
+    async submitExam(options = {}) {
         if (this.debug) console.log('Submit exam called');
 
-        if (!confirm('Are you sure you want to submit your exam? This action cannot be undone.')) {
+        if (this.isSubmitting) return;
+
+        if (!options.skipConfirm) {
+            this.showSubmitModal();
             return;
         }
 
@@ -860,6 +913,7 @@ class ExamTaker {
         }
 
         try {
+            await this.flushUnsavedAnswers();
             const answers = this.collectAllAnswers();
             await this.syncTimer('in_progress');
 
@@ -902,7 +956,7 @@ class ExamTaker {
             throw new Error('Server returned non-JSON response');
         } catch (error) {
             console.error('Error submitting exam:', error);
-            alert('Failed to submit exam: ' + error.message);
+            this.showWarning('Failed to submit exam: ' + error.message);
             this.isSubmitting = false;
             this.paused = false;
             if (submitBtn) {
@@ -1020,8 +1074,7 @@ class ExamTaker {
 
     autoSubmit() {
         this.cleanup();
-        alert('Time is up! Your exam will be submitted automatically.');
-        this.submitExam();
+        this.submitExam({ skipConfirm: true });
     }
 
     forceEndExam(message = 'Your exam was ended by the Admin', redirect = '/student/dashboard?ended=1') {
