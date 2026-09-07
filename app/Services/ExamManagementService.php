@@ -132,7 +132,7 @@ class ExamManagementService
 
             $remaining = $exam->questions()->orderBy('order_index')->get();
             foreach ($remaining as $index => $question) {
-                $exam->questions()->updateExistingPivot($question->id, ['order_index' => $index + 1]);
+                $exam->questions()->updateExistingPivot($question->getKey(), ['order_index' => $index + 1]);
             }
 
             $exam->updateTotalMarks();

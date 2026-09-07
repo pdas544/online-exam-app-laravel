@@ -8,6 +8,7 @@ use App\Http\Requests\SendWarningRequest;
 use App\Models\Exam;
 use App\Models\ExamSession;
 use App\Services\ExamSessionService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 
 class LiveMonitoringController extends Controller
@@ -61,17 +62,20 @@ class LiveMonitoringController extends Controller
     {
         $this->authorize('update', $exam);
 
-        $sessions = $exam->sessions()
-            ->with('student')
-            ->withCount([
-                'answers as answered_answers_count' => function ($query) {
-                    $query->where('is_answered', true);
-                },
-            ])
-            ->whereIn('status', ['scheduled', 'in_progress', 'paused', 'completed', 'terminated'])
-            ->latest('updated_at')
-            ->get()
-            ->map(function ($session) {
+        $exam->load(['sessions' => function ($query) {
+            $query->with('student')
+                ->withCount([
+                    'answers as answered_answers_count' => function (Builder $query) {
+                        $query->where('is_answered', true);
+                    },
+                ])
+                ->whereIn('status', ['scheduled', 'in_progress', 'paused', 'completed', 'terminated'])
+                ->latest('updated_at');
+        }]);
+
+        $sessions = $exam->sessions;
+
+        $mapped = $sessions->map(function (ExamSession $session) {
                 $liveTimeSpent = $session->time_spent;
 
                 if ($session->status === 'in_progress' && $session->started_at) {
@@ -91,11 +95,9 @@ class LiveMonitoringController extends Controller
                 ];
             });
 
-        $totalActive = $sessions->whereIn('status', ['scheduled', 'in_progress', 'paused'])->count();
-
         return response()->json([
-            'sessions' => $sessions->values(),
-            'total_active' => $totalActive,
+            'sessions' => $mapped,
+            'total_active' => $mapped->whereIn('status', ['scheduled', 'in_progress', 'paused'])->count(),
         ]);
     }
 
@@ -106,11 +108,11 @@ class LiveMonitoringController extends Controller
     {
         $this->authorize('update', $exam);
 
-        $sessions = $exam->sessions()
-            ->where('status', 'scheduled')
-            ->get();
+        $exam->load(['sessions' => function ($query) {
+            $query->where('status', 'scheduled');
+        }]);
 
-        foreach ($sessions as $session) {
+        foreach ($exam->sessions as $session) {
             $session->update([
                 'status' => 'in_progress',
                 'started_at' => now(),
@@ -122,7 +124,7 @@ class LiveMonitoringController extends Controller
 
         return response()->json([
             'success' => true,
-            'started' => $sessions->count(),
+            'started' => $exam->sessions->count(),
         ]);
     }
 

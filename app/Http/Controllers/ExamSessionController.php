@@ -134,9 +134,8 @@ class ExamSessionController extends Controller
             $this->authorize('view', $session);
 
             try {
-                $this->sessions->submit($session->fresh());
+                $this->sessions->submit($session);
 
-                $session->loadMissing('student');
                 broadcast(new ExamEnded($session, 'completed'));
 
                 // Return success response

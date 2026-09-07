@@ -33,8 +33,15 @@ class GradingService
      */
     public function calculateScore(ExamSession $session): array
     {
-        $earned = (float) ($session->answers()->sum('points_earned') ?: 0);
-        $possible = (float) ($session->answers()->sum('max_points') ?: 0);
+        // Prefer the already-loaded collection (gradeSession loads it) —
+        // avoids two aggregate queries on the submit hot path.
+        if ($session->relationLoaded('answers')) {
+            $earned = (float) $session->answers->sum('points_earned');
+            $possible = (float) $session->answers->sum('max_points');
+        } else {
+            $earned = (float) ($session->answers()->sum('points_earned') ?: 0);
+            $possible = (float) ($session->answers()->sum('max_points') ?: 0);
+        }
 
         return [
             'earned' => $earned,

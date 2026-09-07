@@ -4,7 +4,13 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property-read ExamSession|null $session
+ * @property-read Question|null $question
+ * @property-read Exam|null $exam
+ */
 class StudentAnswer extends Model
 {
     use HasFactory;
@@ -34,17 +40,17 @@ class StudentAnswer extends Model
     ];
 
     // Relationships
-    public function session()
+    public function session(): BelongsTo
     {
         return $this->belongsTo(ExamSession::class, 'exam_session_id');
     }
 
-    public function question()
+    public function question(): BelongsTo
     {
         return $this->belongsTo(Question::class);
     }
 
-    public function exam()
+    public function exam(): BelongsTo
     {
         return $this->belongsTo(Exam::class);
     }

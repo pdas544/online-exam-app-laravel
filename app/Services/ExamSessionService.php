@@ -44,7 +44,8 @@ class ExamSessionService
         }
 
         return DB::transaction(function () use ($exam, $studentId) {
-            $questions = $exam->questions()->orderBy('order_index')->get();
+            $exam->loadMissing(['questions' => fn ($query) => $query->orderBy('order_index')]);
+            $questions = $exam->questions;
 
             $session = ExamSession::create([
                 'exam_id' => $exam->id,
@@ -96,23 +97,22 @@ class ExamSessionService
                 ? abs((int) $session->started_at->diffInSeconds(now(), false))
                 : 0;
 
+            $this->grading->gradeSession($session);
+            $score = $this->grading->calculateScore($session);
+            $percentage = round($score['percentage'], 2);
+            $passed = $score['percentage'] >= ($session->exam->passing_marks ?? 40);
+
             $session->update([
                 'status' => 'completed',
                 'submitted_at' => now(),
                 'time_spent' => $timeSpent,
-            ]);
-
-            $this->grading->gradeSession($session);
-            $score = $this->grading->calculateScore($session);
-
-            $session->update([
-                'score' => round($score['percentage'], 2),
-                'passed' => $score['percentage'] >= ($session->exam->passing_marks ?? 40),
+                'score' => $percentage,
+                'passed' => $passed,
             ]);
 
             return [
-                'percentage' => (float) $session->fresh()->score,
-                'passed' => (bool) $session->fresh()->passed,
+                'percentage' => $percentage,
+                'passed' => $passed,
             ];
         });
     }

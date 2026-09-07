@@ -92,7 +92,7 @@ class DashboardService
                 return $query->withCount('questions')
                     ->orderBy('updated_at', 'desc')
                     ->get()
-                    ->map(function ($exam) {
+                    ->map(function (Exam $exam) {
                         return [
                             'id' => $exam->id,
                             'title' => $exam->title,
@@ -232,7 +232,7 @@ class DashboardService
             ->orderBy('available_from', 'asc')
             ->take(5)
             ->get()
-            ->map(function ($exam) {
+            ->map(function (Exam $exam) {
                 return [
                     'id' => $exam->id,
                     'title' => $exam->title,

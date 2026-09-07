@@ -4,7 +4,17 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property-read Exam|null $exam
+ * @property-read User|null $student
+ * @property-read User|null $teacher
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, StudentAnswer> $answers
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, ViolationLog> $violations
+ * @property int|null $answered_answers_count Set by withCount alias.
+ */
 class ExamSession extends Model
 {
     use HasFactory;
@@ -46,27 +56,27 @@ class ExamSession extends Model
     ];
 
     // Relationships
-    public function exam()
+    public function exam(): BelongsTo
     {
         return $this->belongsTo(Exam::class);
     }
 
-    public function student()
+    public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_id');
     }
 
-    public function teacher()
+    public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'teacher_id');
     }
 
-    public function answers()
+    public function answers(): HasMany
     {
         return $this->hasMany(StudentAnswer::class);
     }
 
-    public function violations()
+    public function violations(): HasMany
     {
         return $this->hasMany(ViolationLog::class);
     }
@@ -124,7 +134,7 @@ class ExamSession extends Model
 
     public function logViolation(string $type, string $description, array $metadata = []): ViolationLog
     {
-        $violation = $this->violations()->create([
+        $violation = new ViolationLog([
             'student_id' => $this->student_id,
             'exam_id' => $this->exam_id,
             'violation_type' => $type,
@@ -132,6 +142,7 @@ class ExamSession extends Model
             'metadata' => $metadata,
             'severity' => $this->calculateSeverity($type),
         ]);
+        $this->violations()->save($violation);
 
         $this->increment('violation_count');
 

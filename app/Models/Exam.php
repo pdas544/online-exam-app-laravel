@@ -5,7 +5,17 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property-read Subject|null $subject
+ * @property-read User|null $teacher
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Question> $questions
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, ExamSession> $sessions
+ * @property int|null $questions_count Set by withCount('questions').
+ */
 class Exam extends Model
 {
     use HasFactory, SoftDeletes;
@@ -40,17 +50,17 @@ class Exam extends Model
     ];
 
     // Relationships
-    public function subject()
+    public function subject(): BelongsTo
     {
         return $this->belongsTo(Subject::class);
     }
 
-    public function teacher()
+    public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'teacher_id');
     }
 
-    public function questions()
+    public function questions(): BelongsToMany
     {
         return $this->belongsToMany(Question::class, 'exam_questions')
             ->withPivot('order_index', 'points_override')
@@ -58,7 +68,7 @@ class Exam extends Model
             ->withTimestamps();
     }
 
-    public function sessions()
+    public function sessions(): HasMany
     {
         return $this->hasMany(ExamSession::class);
     }
@@ -101,11 +111,15 @@ class Exam extends Model
 
     public function calculateTotalMarks()
     {
-        return $this->questions()
-            ->get()
-            ->sum(function ($question) {
-                return $question->getPointsForExam($this->id);
-            });
+        $total = 0;
+
+        foreach ($this->questions()->get() as $question) {
+            if ($question instanceof Question) {
+                $total += $question->getPointsForExam($this->id);
+            }
+        }
+
+        return $total;
     }
 
     public function updateTotalMarks()
