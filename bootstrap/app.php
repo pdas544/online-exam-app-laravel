@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'teacher' => \App\Http\Middleware\TeacherMiddleware::class,
         ]);
+        $middleware->append(\App\Http\Middleware\SecureHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

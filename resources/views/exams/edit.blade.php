@@ -121,7 +121,7 @@
                             @if($exam->instructions_file)
                                 <div class="mb-2">
                                     <small class="text-muted">Current file:</small>
-                                    <a href="{{ asset('storage/' . $exam->instructions_file) }}" target="_blank" class="d-block">
+                                    <a href="{{ route('exams.instructions', $exam) }}" target="_blank" class="d-block">
                                         <i class="bi bi-file-earmark"></i> {{ basename($exam->instructions_file) }}
                                     </a>
                                 </div>

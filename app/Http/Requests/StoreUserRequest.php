@@ -24,7 +24,9 @@ class StoreUserRequest extends FormRequest
         return [
             'name' => 'required|string|max:255',
             'email' => ['required', 'email', Rule::unique('users')->ignore($userId)],
-            'password' => $userId ? 'sometimes|nullable|string|min:8|confirmed' : 'required|string|min:8|confirmed',
+            'password' => $userId
+                ? ['sometimes', 'nullable', 'string', 'confirmed', \Illuminate\Validation\Rules\Password::min(8)->letters()->numbers()]
+                : ['required', 'string', 'confirmed', \Illuminate\Validation\Rules\Password::min(8)->letters()->numbers()],
             'role' => 'required|in:admin,teacher',
             'department' => 'required_if:role,teacher|string|max:255',
             'designation' => 'required_if:role,teacher|string|max:255',

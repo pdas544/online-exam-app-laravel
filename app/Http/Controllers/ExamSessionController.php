@@ -258,6 +258,13 @@ class ExamSessionController extends Controller
             return back()->with('error', 'Only an active exam session can be terminated.');
         }
 
+        \Log::info('Exam session force-ended', [
+            'session_id' => $session->id,
+            'exam_id' => $session->exam_id,
+            'student_id' => $session->student_id,
+            'by_user_id' => Auth::id(),
+        ]);
+
         broadcast(new ExamEnded($session, 'terminated_by_teacher'))->toOthers();
         broadcast(new \App\Events\ExamForceEnded($session))->toOthers();
 

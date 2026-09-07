@@ -140,6 +140,11 @@ class LiveMonitoringController extends Controller
             $request->validated()['message'] ?? 'Please focus on your exam.'
         ))->toOthers();
 
+        \Log::info('Teacher warning sent', [
+            'session_id' => $session->id,
+            'by_user_id' => Auth::id(),
+        ]);
+
         return response()->json(['success' => true]);
     }
 
@@ -155,6 +160,11 @@ class LiveMonitoringController extends Controller
         } catch (\DomainException $e) {
             return response()->json(['error' => 'Only a paused exam session can be resumed.'], 422);
         }
+
+        \Log::info('Exam session resumed by teacher', [
+            'session_id' => $session->id,
+            'by_user_id' => Auth::id(),
+        ]);
 
         broadcast(new ExamResumed($session->id, $session->student_id))->toOthers();
 

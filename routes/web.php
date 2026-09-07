@@ -21,10 +21,10 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
-    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:auth');
 
     Route::get('register', [AuthController::class, 'showRegister'])->name('register');
-    Route::post('register', [AuthController::class, 'register']);
+    Route::post('register', [AuthController::class, 'register'])->middleware('throttle:auth');
 
 });
 
@@ -66,6 +66,7 @@ Route::middleware(['auth'])->group(function () {
 
         // Exam Question Management Routes
         Route::get('/exams/{exam}/questions', [ExamController::class, 'manageQuestions'])->name('exams.questions');
+        Route::get('/exams/{exam}/instructions', [ExamController::class, 'downloadInstructions'])->name('exams.instructions');
         Route::post('/exams/{exam}/questions', [ExamController::class, 'addQuestion'])->name('exams.questions.add');
         Route::post('/exams/{exam}/questions/bulk', [ExamController::class, 'bulkAddQuestions'])->name('exams.questions.bulk');
         Route::delete('/exams/{exam}/questions/{question}', [ExamController::class, 'removeQuestion'])->name('exams.questions.remove');
@@ -76,7 +77,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
 // Exam Taking Routes
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'throttle:exam'])->group(function () {
     Route::get('/exam/{exam}/start', [ExamSessionController::class, 'start'])->name('exam.start');
     Route::get('/exam/session/{session}/take', [ExamSessionController::class, 'take'])->name('exam.session.take');
     Route::post('/exam/session/{session}/begin', [ExamSessionController::class, 'begin'])->name('exam.session.begin');

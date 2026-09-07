@@ -61,6 +61,20 @@ class AuthTest extends TestCase
         $this->assertDatabaseMissing('users', ['email' => 'sneaky@example.com']);
     }
 
+    public function test_register_rejects_teacher_role(): void
+    {
+        // Teachers are created by admins, never via self-registration.
+        $this->post('/register', [
+            'name' => 'Sneaky Teacher',
+            'email' => 'sneaky@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'role' => 'teacher',
+        ])->assertSessionHasErrors('role');
+
+        $this->assertDatabaseMissing('users', ['email' => 'sneaky@example.com']);
+    }
+
     public function test_logout_ends_session(): void
     {
         $user = User::factory()->create(['role' => 'student']);

@@ -238,7 +238,7 @@
                         @if($session->exam->instructions_file)
                             <div class="mb-4">
                                 <h6 class="fw-bold">Instruction Document:</h6>
-                                <a href="{{ asset('storage/' . $session->exam->instructions_file) }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                <a href="{{ route('exams.instructions', $session->exam) }}" target="_blank" class="btn btn-outline-primary btn-sm">
                                     <i class="bi bi-file-earmark-download me-1"></i> Download Instructions
                                 </a>
                             </div>

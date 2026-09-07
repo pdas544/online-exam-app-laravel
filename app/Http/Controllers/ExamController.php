@@ -9,11 +9,13 @@ use App\Http\Requests\ReorderQuestionsRequest;
 use App\Http\Requests\StoreExamRequest;
 use App\Http\Requests\UpdateQuestionPointsRequest;
 use App\Models\Exam;
+use App\Models\ExamSession;
 use App\Models\Question;
 use App\Models\Subject;
 use App\Services\ExamManagementService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class ExamController extends Controller
 {
@@ -131,6 +133,35 @@ class ExamController extends Controller
 
         return redirect()->route('exams.index')
             ->with('success', 'Exam deleted successfully.');
+    }
+
+    /**
+     * Download the instructions file. Visible to the owning teacher, admins,
+     * and students enrolled in the exam — never a public direct link.
+     */
+    public function downloadInstructions(Exam $exam)
+    {
+        $user = Auth::user();
+
+        $allowed = $user->isAdmin()
+            || $exam->teacher_id === $user->id
+            || ExamSession::where('exam_id', $exam->id)->where('student_id', $user->id)->exists();
+
+        if (! $allowed) {
+            abort(403);
+        }
+
+        if (! $exam->instructions_file || ! Storage::disk('public')->exists($exam->instructions_file)) {
+            abort(404);
+        }
+
+        // View inline when the browser can render it (pdf/txt); download otherwise.
+        $inline = in_array(strtolower(pathinfo($exam->instructions_file, PATHINFO_EXTENSION)), ['pdf', 'txt'], true);
+        $disposition = ($inline ? 'inline' : 'attachment').'; filename="'.basename($exam->instructions_file).'"';
+
+        return Storage::disk('public')->response($exam->instructions_file, null, [
+            'Content-Disposition' => $disposition,
+        ]);
     }
 
     /**

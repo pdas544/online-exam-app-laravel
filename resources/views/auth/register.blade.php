@@ -50,15 +50,10 @@
                                 <label for="role" class="col-md-4 col-form-label text-md-end">{{ __('I am a') }}</label>
 
                                 <div class="col-md-6">
-                                    <select id="role" class="form-control @error('role') is-invalid @enderror"
-                                            name="role" required>
-                                        <option value="student" {{ old('role') == 'student' ? 'selected' : '' }}>
-                                            Student
-                                        </option>
-                                        <option value="teacher" {{ old('role') == 'teacher' ? 'selected' : '' }}>
-                                            Teacher
-                                        </option>
-                                    </select>
+                                    <input type="hidden" name="role" value="student">
+                                    <p class="form-control-plaintext mb-0">Student
+                                        <small class="text-muted d-block">Teacher accounts are created by an administrator.</small>
+                                    </p>
 
                                     @error('role')
                                     <span class="invalid-feedback" role="alert">
