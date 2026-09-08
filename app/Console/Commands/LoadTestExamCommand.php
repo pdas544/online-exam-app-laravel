@@ -7,10 +7,13 @@ use App\LoadTesting\Scenario;
 use App\LoadTesting\StudentBot;
 use App\LoadTesting\TeacherBot;
 use App\Models\Exam;
+use App\Models\ExamSession;
 use App\Models\Question;
 use App\Models\Subject;
 use App\Models\User;
+use App\Services\GradingService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class LoadTestExamCommand extends Command
@@ -173,9 +176,336 @@ class LoadTestExamCommand extends Command
         foreach ($failures as $failure) {
             $this->warn($failure);
         }
+
+        $lines = $this->readResultLines($dir);
+        // Drain first: the grading spot-check needs finished grading jobs.
+        $queuesDrained = $this->assertQueuesDrained();
+        $assertions = [
+            $this->assertNoServerErrors($summary),
+            $this->assertNoRateLimitHits($summary),
+            $this->assertSubmitIdempotent($lines),
+            $this->assertNoDuplicateActiveSessions($examId),
+            $this->assertEagerBeginRejected($lines),
+            $this->assertSpamTerminates($examId),
+            $this->assertGradingSpotCheck($examId),
+            $queuesDrained,
+            $this->assertChaosMinimums($lines, $count),
+        ];
+        foreach ($assertions as $assertion) {
+            $label = $assertion['pass'] ? 'PASS' : 'FAIL';
+            $this->line("{$label} {$assertion['name']} — {$assertion['detail']}");
+        }
+        $this->printLatencyReport($summary);
+
         $this->line("results: {$dir}");
         $this->line('Note: a queue worker must be running for ExamSession grading jobs.');
 
+        foreach ($assertions as $assertion) {
+            if (! $assertion['pass']) {
+                return self::FAILURE;
+            }
+        }
+
         return self::SUCCESS;
+    }
+
+    /**
+     * @return array<int, array{bot: int|string, action: string, status: int, body: string}>
+     */
+    private function readResultLines(string $dir): array
+    {
+        $lines = [];
+        foreach (glob(rtrim($dir, '/').'/*.jsonl') ?: [] as $file) {
+            $raw = @file($file, FILE_IGNORE_NEW_LINES);
+            if (! is_array($raw)) {
+                continue;
+            }
+            foreach ($raw as $row) {
+                $decoded = json_decode($row, true);
+                if (! is_array($decoded)
+                    || ! isset($decoded['action']) || ! is_string($decoded['action'])
+                    || ! isset($decoded['status']) || ! is_numeric($decoded['status'])
+                ) {
+                    continue;
+                }
+                $bot = $decoded['bot'] ?? '?';
+                $lines[] = [
+                    'bot' => is_int($bot) || is_string($bot) ? $bot : '?',
+                    'action' => $decoded['action'],
+                    'status' => (int) $decoded['status'],
+                    'body' => isset($decoded['body']) && is_string($decoded['body']) ? $decoded['body'] : '',
+                ];
+            }
+        }
+
+        return $lines;
+    }
+
+    /**
+     * @param  array{by_action: array<string, array{n: int, p50: float, p95: float, codes: array<int, int>}>, http_5xx: int, http_429: int, skipped: int}  $summary
+     * @return array{name: string, pass: bool, detail: string}
+     */
+    private function assertNoServerErrors(array $summary): array
+    {
+        return [
+            'name' => 'no_server_errors',
+            'pass' => $summary['http_5xx'] === 0,
+            'detail' => "http_5xx={$summary['http_5xx']}",
+        ];
+    }
+
+    /**
+     * @param  array{by_action: array<string, array{n: int, p50: float, p95: float, codes: array<int, int>}>, http_5xx: int, http_429: int, skipped: int}  $summary
+     * @return array{name: string, pass: bool, detail: string}
+     */
+    private function assertNoRateLimitHits(array $summary): array
+    {
+        return [
+            'name' => 'no_rate_limit_hits',
+            'pass' => $summary['http_429'] === 0,
+            'detail' => "http_429={$summary['http_429']}",
+        ];
+    }
+
+    /**
+     * @param  array<int, array{bot: int|string, action: string, status: int, body: string}>  $lines
+     * @return array{name: string, pass: bool, detail: string}
+     */
+    private function assertSubmitIdempotent(array $lines): array
+    {
+        /** @var array<string, array<int, array{bot: int|string, action: string, status: int, body: string}>> $byBot */
+        $byBot = [];
+        foreach ($lines as $line) {
+            if (! in_array($line['action'], ['submit', 'submit_dup'], true)) {
+                continue;
+            }
+            if ($line['bot'] === 'teacher') {
+                continue;
+            }
+            $byBot[(string) $line['bot']][] = $line;
+        }
+
+        $checked = 0;
+        $bad = [];
+        foreach ($byBot as $bot => $submits) {
+            if (count($submits) < 2) {
+                continue;
+            }
+            $checked++;
+            foreach ($submits as $submit) {
+                if ($submit['status'] !== 200 || $submit['body'] !== $submits[0]['body']) {
+                    $bad[] = $bot;
+
+                    break;
+                }
+            }
+        }
+
+        return [
+            'name' => 'submit_idempotent',
+            'pass' => count($bad) === 0,
+            'detail' => $checked === 0
+                ? 'no bot with ≥2 submit lines'
+                : "checked {$checked} bots; mismatched=".json_encode($bad),
+        ];
+    }
+
+    /**
+     * @return array{name: string, pass: bool, detail: string}
+     */
+    private function assertNoDuplicateActiveSessions(int $examId): array
+    {
+        $dupes = ExamSession::where('exam_id', $examId)
+            ->whereIn('status', ['scheduled', 'in_progress', 'paused'])
+            ->groupBy('student_id')
+            ->havingRaw('COUNT(*) > 1')
+            ->pluck('student_id');
+
+        return [
+            'name' => 'no_duplicate_active_sessions',
+            'pass' => $dupes->isEmpty(),
+            'detail' => $dupes->isEmpty()
+                ? 'no student holds >1 active session'
+                : 'students with >1 active session: '.$dupes->implode(','),
+        ];
+    }
+
+    /**
+     * @param  array<int, array{bot: int|string, action: string, status: int, body: string}>  $lines
+     * @return array{name: string, pass: bool, detail: string}
+     */
+    private function assertEagerBeginRejected(array $lines): array
+    {
+        $rejected = 0;
+        foreach ($lines as $line) {
+            if ($line['action'] === 'eager_begin' && $line['status'] !== 200) {
+                $rejected++;
+            }
+        }
+
+        return [
+            'name' => 'eager_begin_rejected',
+            'pass' => $rejected >= 5,
+            'detail' => "rejected={$rejected} (need ≥5)",
+        ];
+    }
+
+    /**
+     * @return array{name: string, pass: bool, detail: string}
+     */
+    private function assertSpamTerminates(int $examId): array
+    {
+        $student = User::where('email', 'loadtest-student-0@example.com')->first();
+        if ($student === null) {
+            return [
+                'name' => 'spam_terminates',
+                'pass' => false,
+                'detail' => 'bot 0 student row missing (bots are spawned 1..N; see task-6 report)',
+            ];
+        }
+        $session = ExamSession::where('exam_id', $examId)
+            ->where('student_id', $student->getKey())
+            ->orderByDesc('id')
+            ->first();
+        if ($session === null) {
+            return [
+                'name' => 'spam_terminates',
+                'pass' => false,
+                'detail' => "bot 0 has no session row for exam {$examId}",
+            ];
+        }
+
+        return [
+            'name' => 'spam_terminates',
+            'pass' => $session->status === 'terminated',
+            'detail' => "bot 0 session #{$session->getKey()} status={$session->status}",
+        ];
+    }
+
+    /**
+     * @return array{name: string, pass: bool, detail: string}
+     */
+    private function assertGradingSpotCheck(int $examId): array
+    {
+        $sessions = ExamSession::where('exam_id', $examId)
+            ->where('status', 'completed')
+            ->whereNotNull('score')
+            ->orderBy('id')
+            ->limit(5)
+            ->get();
+        if ($sessions->count() < 5) {
+            return [
+                'name' => 'grading_spot_check',
+                'pass' => false,
+                'detail' => "only {$sessions->count()} completed sessions with non-null score (need 5)",
+            ];
+        }
+
+        $grading = new GradingService;
+        $bad = [];
+        foreach ($sessions as $session) {
+            $fresh = ExamSession::find($session->getKey());
+            if ($fresh === null) {
+                $bad[] = (string) $session->getKey();
+
+                continue;
+            }
+            $recomputed = $grading->calculateScore($fresh);
+            if (round((float) $session->score, 2) !== round($recomputed['percentage'], 2)) {
+                $bad[] = (string) $session->getKey();
+            }
+        }
+
+        return [
+            'name' => 'grading_spot_check',
+            'pass' => count($bad) === 0,
+            'detail' => count($bad) === 0
+                ? '5/5 sessions match after rounding to 2 decimals'
+                : 'mismatched sessions: '.implode(',', $bad),
+        ];
+    }
+
+    /**
+     * @return array{name: string, pass: bool, detail: string}
+     */
+    private function assertQueuesDrained(): array
+    {
+        try {
+            for ($waited = 0; $waited < 60; $waited++) {
+                $jobs = DB::table('jobs')->count();
+                $failed = DB::table('failed_jobs')->count();
+                if ($jobs === 0 && $failed === 0) {
+                    return [
+                        'name' => 'queues_drained',
+                        'pass' => true,
+                        'detail' => "queues empty after ~{$waited}s",
+                    ];
+                }
+                sleep(1);
+            }
+            $jobs = DB::table('jobs')->count();
+            $failed = DB::table('failed_jobs')->count();
+
+            return [
+                'name' => 'queues_drained',
+                'pass' => false,
+                'detail' => "jobs={$jobs} failed_jobs={$failed} after 60s",
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'name' => 'queues_drained',
+                'pass' => false,
+                'detail' => 'queue poll failed: '.substr($e->getMessage(), 0, 160),
+            ];
+        }
+    }
+
+    /**
+     * @param  array<int, array{bot: int|string, action: string, status: int, body: string}>  $lines
+     * @return array{name: string, pass: bool, detail: string}
+     */
+    private function assertChaosMinimums(array $lines, int $students): array
+    {
+        $counts = ['pause' => 0, 'submit_dup' => 0, 'warn' => 0, 'end' => 0];
+        foreach ($lines as $line) {
+            if (array_key_exists($line['action'], $counts)) {
+                $counts[$line['action']]++;
+            }
+        }
+        $pass = $counts['pause'] >= 3
+            && $counts['submit_dup'] >= $students
+            && $counts['warn'] >= 2
+            && $counts['end'] >= 1;
+
+        return [
+            'name' => 'chaos_minimums',
+            'pass' => $pass,
+            'detail' => "pause={$counts['pause']} (≥3) submit_dup={$counts['submit_dup']} (≥{$students}) warn={$counts['warn']} (≥2) end={$counts['end']} (≥1)",
+        ];
+    }
+
+    /**
+     * @param  array{by_action: array<string, array{n: int, p50: float, p95: float, codes: array<int, int>}>, http_5xx: int, http_429: int, skipped: int}  $summary
+     */
+    private function printLatencyReport(array $summary): void
+    {
+        foreach ($summary['by_action'] as $action => $stats) {
+            $this->line("latency {$action}: n={$stats['n']} p50={$stats['p50']}ms p95={$stats['p95']}ms");
+        }
+        $budgets = [
+            ['label' => 'status p95 <500ms', 'action' => 'status', 'budget' => 500.0],
+            ['label' => 'answer p95 <1s', 'action' => 'answer', 'budget' => 1000.0],
+            ['label' => 'submit-ack p95 <2s', 'action' => 'submit', 'budget' => 2000.0],
+        ];
+        foreach ($budgets as $budget) {
+            $stats = $summary['by_action'][$budget['action']] ?? null;
+            if ($stats === null) {
+                $this->line("WARN {$budget['label']} — no data");
+
+                continue;
+            }
+            $state = $stats['p95'] < $budget['budget'] ? 'WITHIN' : 'WARN';
+            $this->line("{$state} {$budget['label']} (p95={$stats['p95']}ms)");
+        }
     }
 }
