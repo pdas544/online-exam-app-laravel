@@ -133,6 +133,7 @@ class DashboardServiceTest extends TestCase
             'teacher_id' => $this->teacher->id,
             'status' => 'completed',
             'submitted_at' => now(),
+            'score' => 100,
             'total_questions' => 1,
         ]);
         StudentAnswer::create([
@@ -149,6 +150,7 @@ class DashboardServiceTest extends TestCase
         $detail = $this->service->studentResultDetail($session->fresh());
 
         $this->assertEquals($this->exam->title, $detail['summary']['exam_name']);
+        $this->assertFalse($detail['grading_pending']);
         $this->assertCount(1, $detail['rows']);
         $this->assertTrue($detail['rows'][0]['is_correct']);
     }

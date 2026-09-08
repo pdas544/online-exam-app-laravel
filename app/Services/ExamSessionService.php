@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\GradeExamSession;
 use App\Models\Exam;
 use App\Models\ExamSession;
 use App\Models\StudentAnswer;
@@ -10,8 +11,6 @@ use Illuminate\Support\Facades\DB;
 
 class ExamSessionService
 {
-    public function __construct(private GradingService $grading) {}
-
     /**
      * Start (or resume) an exam for a student.
      *
@@ -79,12 +78,28 @@ class ExamSessionService
      *
      * @throws DomainException when the session is not submittable.
      */
+    /**
+     * Submit an in-progress session: mark completed and dispatch async grading.
+     * Idempotent — resubmitting a completed session returns its stored result,
+     * re-dispatching grading when a previous attempt never finished.
+     *
+     * @return array{percentage: float, passed: bool, grading_pending: bool}
+     *
+     * @throws DomainException when the session is not submittable.
+     */
     public function submit(ExamSession $session): array
     {
         if ($session->status === 'completed') {
+            if ($session->score === null) {
+                GradeExamSession::dispatch($session->id);
+
+                return ['percentage' => 0.0, 'passed' => false, 'grading_pending' => true];
+            }
+
             return [
                 'percentage' => (float) $session->score,
                 'passed' => (bool) $session->passed,
+                'grading_pending' => false,
             ];
         }
 
@@ -92,29 +107,21 @@ class ExamSessionService
             throw new DomainException('This exam session cannot be submitted.');
         }
 
-        return DB::transaction(function () use ($session) {
+        DB::transaction(function () use ($session) {
             $timeSpent = $session->started_at
                 ? abs((int) $session->started_at->diffInSeconds(now(), false))
                 : 0;
-
-            $this->grading->gradeSession($session);
-            $score = $this->grading->calculateScore($session);
-            $percentage = round($score['percentage'], 2);
-            $passed = $score['percentage'] >= ($session->exam->passing_marks ?? 40);
 
             $session->update([
                 'status' => 'completed',
                 'submitted_at' => now(),
                 'time_spent' => $timeSpent,
-                'score' => $percentage,
-                'passed' => $passed,
             ]);
-
-            return [
-                'percentage' => $percentage,
-                'passed' => $passed,
-            ];
         });
+
+        GradeExamSession::dispatch($session->id);
+
+        return ['percentage' => 0.0, 'passed' => false, 'grading_pending' => true];
     }
 
     /**

@@ -133,7 +133,7 @@ class DashboardService
     }
 
     /**
-     * @return array{summary: array, rows: array}
+     * @return array{summary: array, rows: array, grading_pending: bool}
      */
     public function studentResultDetail(ExamSession $session): array
     {
@@ -162,7 +162,7 @@ class DashboardService
             'total_marks' => (float) $session->answers->sum('max_points'),
         ];
 
-        return ['summary' => $summary, 'rows' => $rows];
+        return ['summary' => $summary, 'rows' => $rows, 'grading_pending' => $session->score === null];
     }
 
     public function formatAnswerForDisplay(?Question $question, mixed $rawAnswer): string

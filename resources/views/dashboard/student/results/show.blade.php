@@ -14,6 +14,10 @@
             </a>
         </div>
 
+        @if(! empty($gradingPending))
+            <div class="alert alert-info" role="status">Grading in progress — refresh in a moment to see your score.</div>
+        @endif
+
         <div class="card border-0 shadow-sm mb-4">
             <div class="card-body">
                 <div class="row g-3">

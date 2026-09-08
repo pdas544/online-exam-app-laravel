@@ -56,6 +56,7 @@ class StudentDashboardController extends Controller
         return view('dashboard.student.results.show', [
             'summary' => $detail['summary'],
             'rows' => $detail['rows'],
+            'gradingPending' => $detail['grading_pending'],
         ]);
     }
 }

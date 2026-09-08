@@ -35,6 +35,7 @@ Route::middleware(['auth'])->group(function () {
     // Admin routes - using simple auth middleware with role checks in controllers
     Route::prefix('admin')->name('admin.')->group(function () {
         Route::get('/dashboard', [AdminDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/metrics', [\App\Http\Controllers\Admin\MetricsController::class, 'show'])->name('metrics');
         Route::get('/exam-sessions/active', [AdminDashboardController::class, 'activeSessions'])->name('exam-sessions.active');
 
 

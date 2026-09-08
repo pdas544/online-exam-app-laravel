@@ -8,7 +8,6 @@ use App\Models\Question;
 use App\Models\Subject;
 use App\Models\User;
 use App\Services\ExamSessionService;
-use App\Services\GradingService;
 use DomainException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -53,7 +52,7 @@ class ExamSessionServiceTest extends TestCase
 
     private function service(): ExamSessionService
     {
-        return new ExamSessionService(new GradingService);
+        return new ExamSessionService;
     }
 
     public function test_start_creates_session_with_one_answer_per_question(): void
