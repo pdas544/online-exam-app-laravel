@@ -175,6 +175,43 @@ class DashboardServiceTest extends TestCase
         $this->assertNotEmpty($overview['quickActions']);
     }
 
+    public function test_admin_health_reports_operational_signals(): void
+    {
+        $session = ExamSession::create([
+            'exam_id' => $this->exam->id,
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'status' => 'in_progress',
+            'started_at' => now(),
+            'total_questions' => 1,
+        ]);
+        \App\Models\ViolationLog::create([
+            'exam_session_id' => $session->id,
+            'student_id' => $this->student->id,
+            'exam_id' => $this->exam->id,
+            'violation_type' => 'tab_switch',
+            'description' => 'x',
+            'severity' => 1,
+        ]);
+        ExamSession::create([
+            'exam_id' => $this->exam->id,
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'status' => 'completed',
+            'submitted_at' => now(),
+            'score' => null,
+            'total_questions' => 1,
+        ]);
+
+        $health = $this->service->adminHealth();
+
+        $this->assertEquals(1, $health['sessions_by_status']['in_progress']);
+        $this->assertEquals(1, $health['violations_last_hour']);
+        $this->assertEquals(1, $health['ungraded_completions']);
+        $this->assertEquals(0, $health['queue_depth']);
+        $this->assertEquals(0, $health['failed_jobs']);
+    }
+
     public function test_active_sessions_paginates_with_column_selection(): void
     {
         ExamSession::create([

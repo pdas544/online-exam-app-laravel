@@ -24,6 +24,7 @@ class AdminDashboardController extends BaseDashboardController
             'stats' => $overview['stats'],
             'quickActions' => $overview['quickActions'],
             'recentActivity' => $overview['recentActivity'],
+            'health' => $this->dashboards->adminHealth(),
         ]);
     }
 

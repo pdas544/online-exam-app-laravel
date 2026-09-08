@@ -42,6 +42,7 @@ class MetricsTest extends TestCase
             'queue_depth',
             'failed_jobs',
             'violations_last_hour',
+            'ungraded_completions',
             'live_exams',
         ]);
         $this->assertEquals(1, $response->json('sessions_by_status.in_progress'));
@@ -56,5 +57,16 @@ class MetricsTest extends TestCase
         $this->actingAs($teacher)->getJson(route('admin.metrics'))->assertForbidden();
         $this->actingAs($student)->getJson(route('admin.metrics'))->assertForbidden();
         $this->getJson(route('admin.metrics'))->assertForbidden();
+    }
+
+    public function test_admin_dashboard_renders_health_cards(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $this->actingAs($admin)
+            ->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertSee('Sessions by Status')
+            ->assertSee('Queue Health');
     }
 }

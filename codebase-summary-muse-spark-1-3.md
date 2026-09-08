@@ -136,3 +136,17 @@
 | R11 | Cleanup: route hygiene, Blade-logic reduction, Tailwind-vs-Bootstrap, Breeze decision, stub events/seeders, Blade consolidation, a11y pass | Debt removal | S | Med |
 
 **Suggested execution:** ~~R0 → R1+R2~~ DONE → R3 → R4+R5 → R6+R9 → R8 (add tests per refactor) → R7/R10/R11. Keep each PR <300 lines; add a test before each service extraction. Progress tracked in `refactor-log-tracker.md`.
+
+## 5. Runbook — start the app
+
+### Local development
+1. `composer run setup` — installs PHP + JS deps, copies `.env.example` → `.env`, generates key, migrates, builds assets. Default DB is `pgsql` (`exam_system` on `127.0.0.1`; create it + set creds first), or switch `.env` to `sqlite`.
+2. `composer run dev` — runs concurrently: `php artisan serve` (:8000), `queue:listen --tries=1`, `pail`, Vite dev. **Not included — start separately:** `php artisan reverb:start --port=8080` (realtime; needs `BROADCAST_CONNECTION=reverb` + `REVERB_*`/`VITE_REVERB_*` keys) and `php artisan schedule:run` every minute (session expiry; or `schedule:work`). Without the worker, broadcasts pile up in `jobs` and realtime silently dies; without the scheduler, timed-out sessions never expire.
+3. Seed an admin via `database/seeders` (`admin@examsystem.com`); teachers are admin-created (no self-registration).
+4. `composer run test` — clears config, runs PHPUnit on sqlite `:memory:` (87+ tests, ~1s). Style: `./vendor/bin/pint --test` on touched files; static analysis: `./vendor/bin/phpstan analyse` (level 5, zero-error).
+
+### Production
+1. Env: `APP_ENV=production`, `APP_DEBUG=false`, real `APP_KEY`, pgsql creds, `SESSION_SECURE_COOKIE=true`, `BROADCAST_CONNECTION=reverb` + filled `REVERB_*`, tightened `AUTH_RATE_LIMIT`/`EXAM_RATE_LIMIT` (defaults are suite-safe, not prod-safe).
+2. Build: `composer install --no-dev --optimize-autoloader`, `npm ci && npm run build`, `php artisan migrate --force`, `php artisan config:cache && php artisan route:cache && php artisan view:cache`.
+3. Processes (supervisor/systemd, all required): `php artisan serve` (or nginx + php-fpm), `queue:work` (database driver until R10 moves to Redis), `reverb:start`, `schedule:run` via cron every minute.
+4. Ops gaps (R10): no backup/retention runbook yet, no metrics beyond `/up`, no `.env.production.example`. See §3.8.

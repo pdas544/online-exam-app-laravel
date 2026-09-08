@@ -7,7 +7,9 @@ use App\Models\ExamSession;
 use App\Models\Question;
 use App\Models\Subject;
 use App\Models\User;
+use App\Models\ViolationLog;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Dashboard read models: student/teacher/admin overviews, results shaping,
@@ -271,6 +273,37 @@ class DashboardService
             'stats' => $stats,
             'quickActions' => $this->adminQuickActions(),
             'recentActivity' => $this->adminRecentActivity(),
+        ];
+    }
+
+    /**
+     * Operational signals shared by the admin dashboard and /admin/metrics.
+     *
+     * @return array{sessions_by_status: array, queue_depth: int, failed_jobs: int, violations_last_hour: int, ungraded_completions: int, live_exams: int}
+     */
+    public function adminHealth(): array
+    {
+        return [
+            'sessions_by_status' => ExamSession::selectRaw('status, COUNT(*) as count')
+                ->groupBy('status')
+                ->pluck('count', 'status')
+                ->toArray(),
+            'queue_depth' => DB::table('jobs')->count(),
+            'failed_jobs' => DB::table('failed_jobs')->count(),
+            'violations_last_hour' => ViolationLog::where('created_at', '>=', now()->subHour())->count(),
+            'ungraded_completions' => ExamSession::where('status', 'completed')
+                ->whereNull('score')
+                ->count(),
+            'live_exams' => Exam::where('status', 'published')
+                ->where(function ($query) {
+                    $query->whereNull('available_from')
+                        ->orWhere('available_from', '<=', now());
+                })
+                ->where(function ($query) {
+                    $query->whereNull('available_to')
+                        ->orWhere('available_to', '>=', now());
+                })
+                ->count(),
         ];
     }
 
