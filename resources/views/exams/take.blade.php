@@ -24,7 +24,7 @@
                         <h5 class="mb-0">{{ $session->exam->title }}</h5>
                     </div>
                     <div class="col-md-4 text-center">
-                        <div class="alert alert-info mb-0 py-2" id="timer-container">
+                        <div class="alert alert-info mb-0 py-2" id="timer-container" role="timer" aria-live="polite" aria-atomic="true">
                             <i class="bi bi-clock me-2"></i>
                             Time Remaining: <strong id="timer">{{ $session->exam->time_limit }}:00</strong>
                         </div>
@@ -257,7 +257,7 @@
 
                     <!-- Footer with status and button -->
                     <div class="text-center border-top pt-3">
-                        <div id="lobby-status" class="text-muted mb-3">Waiting for instructor to start the exam...</div>
+                        <div id="lobby-status" class="text-muted mb-3" aria-live="polite">Waiting for instructor to start the exam...</div>
                         <button class="btn btn-success btn-lg" id="proceed-exam-btn" disabled>
                             Proceed for Exam
                         </button>
@@ -274,7 +274,7 @@
                 <div class="modal-header bg-danger text-white">
                     <h5 class="modal-title">Exam Paused</h5>
                 </div>
-                <div class="modal-body d-flex flex-column justify-content-center align-items-center text-center">
+                <div class="modal-body d-flex flex-column justify-content-center align-items-center text-center" aria-live="assertive">
                     <h3 class="mb-3">Exam Paused</h3>
                     <p class="lead">You left the exam window. Please wait for the instructor to allow you to resume.</p>
                     <div id="resume-status" class="text-muted mb-4">Waiting for instructor approval...</div>

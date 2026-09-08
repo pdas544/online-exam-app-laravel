@@ -23,7 +23,7 @@
 
         <div class="card border-0 shadow-sm">
             <div class="card-body p-0">
-                @if($results->count() > 0)
+                @if(count($results) > 0)
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
                             <thead class="table-light">

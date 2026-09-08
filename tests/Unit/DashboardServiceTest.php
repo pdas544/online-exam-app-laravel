@@ -175,6 +175,37 @@ class DashboardServiceTest extends TestCase
         $this->assertNotEmpty($overview['quickActions']);
     }
 
+    public function test_admin_recent_activity_reflects_real_events(): void
+    {
+        $session = ExamSession::create([
+            'exam_id' => $this->exam->id,
+            'student_id' => $this->student->id,
+            'teacher_id' => $this->teacher->id,
+            'status' => 'completed',
+            'started_at' => now()->subHour(),
+            'submitted_at' => now(),
+            'total_questions' => 1,
+        ]);
+        \App\Models\ViolationLog::create([
+            'exam_session_id' => $session->id,
+            'student_id' => $this->student->id,
+            'exam_id' => $this->exam->id,
+            'violation_type' => 'tab_switch',
+            'description' => 'x',
+            'severity' => 1,
+        ]);
+
+        $activity = $this->service->adminOverview()['recentActivity'];
+
+        $this->assertNotEmpty($activity);
+        foreach ($activity as $item) {
+            $this->assertArrayHasKey('title', $item);
+            $this->assertArrayHasKey('description', $item);
+            $this->assertArrayHasKey('time', $item);
+        }
+        $this->assertStringContainsString($this->exam->title, (string) json_encode($activity));
+    }
+
     public function test_admin_health_reports_operational_signals(): void
     {
         $session = ExamSession::create([

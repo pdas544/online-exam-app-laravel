@@ -321,10 +321,34 @@ class DashboardService
 
     private function adminRecentActivity(): array
     {
-        return [
-            ['title' => 'New User Registered', 'description' => 'John Doe created a teacher account', 'time' => '5 minutes ago'],
-            ['title' => 'Exam Published', 'description' => 'Mathematics Final Exam was published', 'time' => '1 hour ago'],
-        ];
+        $activity = User::latest()->limit(3)
+            ->get(['name', 'role', 'created_at'])
+            ->map(fn (User $user) => [
+                'title' => 'New '.ucfirst((string) $user->role).' Registered',
+                'description' => "{$user->name} joined as {$user->role}",
+                'time' => $user->created_at->diffForHumans(),
+            ])
+            ->all();
+
+        $sessions = ExamSession::with('exam:id,title')->latest('started_at')->limit(3)->get();
+        foreach ($sessions as $session) {
+            $activity[] = [
+                'title' => 'Exam '.ucfirst((string) $session->status),
+                'description' => ($session->exam->title ?? 'An exam')." — session #{$session->id}",
+                'time' => $session->started_at?->diffForHumans() ?? '—',
+            ];
+        }
+
+        $violations = ViolationLog::latest()->limit(3)->get(['violation_type', 'created_at']);
+        foreach ($violations as $violation) {
+            $activity[] = [
+                'title' => 'Violation Detected',
+                'description' => ucfirst(str_replace('_', ' ', (string) $violation->violation_type)),
+                'time' => $violation->created_at->diffForHumans(),
+            ];
+        }
+
+        return array_slice($activity, 0, 6);
     }
 
     /**

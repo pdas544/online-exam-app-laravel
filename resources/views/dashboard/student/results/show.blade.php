@@ -35,7 +35,7 @@
                     </div>
                     <div class="col-md-3">
                         <small class="text-muted d-block">Questions</small>
-                        <strong>{{ $rows->count() }}</strong>
+                        <strong>{{ count($rows) }}</strong>
                     </div>
                 </div>
             </div>

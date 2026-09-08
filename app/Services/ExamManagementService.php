@@ -54,7 +54,7 @@ class ExamManagementService
             $query->where('semester', $filters['semester']);
         }
 
-        return $query->withCount('questions')->latest()->paginate($filters['per_page'] ?? 10);
+        return $query->withCount('questions')->latest()->paginate($filters['per_page'] ?? 10)->withQueryString();
     }
 
     public function createExam(ExamData $data, ?UploadedFile $file): Exam
@@ -240,12 +240,14 @@ class ExamManagementService
             ->whereDoesntHave('exams', fn ($q) => $q->where('exams.id', $exam->id))
             ->orderBy('question_type')
             ->orderBy('created_at', 'desc')
-            ->paginate(15);
+            ->paginate(15)
+            ->withQueryString();
 
         $all = Question::where('subject_id', $exam->subject_id)
             ->orderBy('question_type')
             ->orderBy('created_at', 'desc')
-            ->paginate(15);
+            ->paginate(15)
+            ->withQueryString();
 
         return ['attached' => $attached, 'available' => $available, 'all' => $all];
     }

@@ -133,7 +133,7 @@
 | R8 | Feature+Unit suite (auth, exam flow, attempts, violations, broadcasts) + CI (`test`, `pint`, `phpstan`, `build`). Absorbed from A: concurrency/perf harness — 100-student simultaneous-submit test (<30s budget), `ab -n 100 -c 10` smoke, KPI targets (p95 <200ms, <10 queries/req, cache hit >80%, coverage >80% on `app/Services`) | Regression safety for all above | M | High |
 | R9 | Hardening: `throttle`, `Password::defaults`, signed upload URLs, security headers, generic error pages, audit logging | OWASP baseline | S–M | High |
 | R10 | Ops: `exams:expire-sessions` schedule + queue (Redis/database split: default + `violations` queues, supervisor) + backup runbook + `.env.prod` + `/up` + metrics | Deployable + operable | M | High |
-| R11 | Cleanup: route hygiene, Blade-logic reduction, Tailwind-vs-Bootstrap, Breeze decision, stub events/seeders, Blade consolidation, a11y pass | Debt removal | S | Med |
+| R11 | [DONE 2026-09-08] Cleanup: single `auth` route group, dupe `admin/dashboard` view + 4 stub events + 3 empty seeders deleted, real admin activity, Tailwind + Breeze removed, `withQueryString` ×4, timer/lobby/paused `aria-live`, `RouteSmokeTest` | Debt removal | S | Med |
 
 **Suggested execution:** ~~R0 → R1+R2~~ DONE → R3 → R4+R5 → R6+R9 → R8 (add tests per refactor) → R7/R10/R11. Keep each PR <300 lines; add a test before each service extraction. Progress tracked in `refactor-log-tracker.md`.
 
@@ -149,4 +149,4 @@
 1. Env: `APP_ENV=production`, `APP_DEBUG=false`, real `APP_KEY`, pgsql creds, `SESSION_SECURE_COOKIE=true`, `BROADCAST_CONNECTION=reverb` + filled `REVERB_*`, tightened `AUTH_RATE_LIMIT`/`EXAM_RATE_LIMIT` (defaults are suite-safe, not prod-safe).
 2. Build: `composer install --no-dev --optimize-autoloader`, `npm ci && npm run build`, `php artisan migrate --force`, `php artisan config:cache && php artisan route:cache && php artisan view:cache`.
 3. Processes (supervisor/systemd, all required): `php artisan serve` (or nginx + php-fpm), `queue:work` (database driver until R10 moves to Redis), `reverb:start`, `schedule:run` via cron every minute.
-4. Ops gaps (R10): no backup/retention runbook yet, no metrics beyond `/up`, no `.env.production.example`. See §3.8.
+4. Ops (R10 done): backup/retention in `docs/runbook.md` + `scripts/backup.sh`, metrics at `/admin/metrics` + admin dashboard health cards, `.env.production.example`, supervisor conf in `deploy/`. See §3.8.
