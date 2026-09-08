@@ -9,9 +9,9 @@ use App\LoadTesting\TeacherBot;
 use App\Models\Exam;
 use App\Models\ExamSession;
 use App\Models\Question;
+use App\Models\StudentAnswer;
 use App\Models\Subject;
 use App\Models\User;
-use App\Services\GradingService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -35,7 +35,7 @@ class LoadTestExamCommand extends Command
 
         if ($this->option('dry-run')) {
             $this->line("dry-run: would create 1 teacher, 1 exam (10 questions, 5 points each), {$count} students");
-            $this->line('bot 1 actions: '.json_encode(Scenario::forBot(1, $seed)));
+            $this->line('bot 0 actions: '.json_encode(Scenario::forBot(0, $seed)));
 
             return self::SUCCESS;
         }
@@ -88,7 +88,7 @@ class LoadTestExamCommand extends Command
         $exam->updateTotalMarks();
 
         $students = [];
-        for ($i = 1; $i <= $count; $i++) {
+        for ($i = 0; $i < $count; $i++) {
             $email = "loadtest-student-{$i}@example.com";
             User::factory()->create([
                 'role' => 'student',
@@ -401,17 +401,30 @@ class LoadTestExamCommand extends Command
             ];
         }
 
-        $grading = new GradingService;
         $bad = [];
         foreach ($sessions as $session) {
-            $fresh = ExamSession::find($session->getKey());
-            if ($fresh === null) {
-                $bad[] = (string) $session->getKey();
-
-                continue;
+            // Fresh read, never persisted: the fixture is uniform
+            // (mcq_single, correct ['B'], 5 pts), so expected grading is
+            // computed directly from each stored answer.
+            $answers = StudentAnswer::where('exam_session_id', $session->getKey())->get();
+            $earned = 0.0;
+            $possible = 0.0;
+            $answerBad = 0;
+            foreach ($answers as $answer) {
+                $stored = $answer->answer ?? [];
+                $expectedCorrect = $answer->is_answered
+                    && array_values($stored) === ['B'];
+                $expectedPoints = $expectedCorrect ? 5.0 : 0.0;
+                $possible += (float) $answer->max_points;
+                $earned += $expectedPoints;
+                if ((bool) $answer->is_correct !== $expectedCorrect
+                    || round((float) $answer->points_earned, 2) !== round($expectedPoints, 2)
+                ) {
+                    $answerBad++;
+                }
             }
-            $recomputed = $grading->calculateScore($fresh);
-            if (round((float) $session->score, 2) !== round($recomputed['percentage'], 2)) {
+            $percentage = $possible > 0 ? round($earned / $possible * 100, 2) : 0.0;
+            if ($answerBad > 0 || round((float) $session->score, 2) !== $percentage) {
                 $bad[] = (string) $session->getKey();
             }
         }
