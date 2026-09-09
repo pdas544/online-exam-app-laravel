@@ -4,13 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
-use App\Http\Requests\Auth\VerifyRoleRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
@@ -64,25 +61,5 @@ class AuthController extends Controller
         $request->session()->regenerateToken();
 
         return redirect('/');
-    }
-
-    // API methods remain the same
-    public function profile(Request $request)
-    {
-        return response()->json($request->user());
-    }
-
-    public function verifyRole(VerifyRoleRequest $request)
-    {
-        $validated = $request->validated();
-
-        $user = $request->user();
-        $hasRole = $user->hasRole($validated['required_role']);
-
-        return response()->json([
-            'has_role' => $hasRole,
-            'user_role' => $user->role,
-            'required_role' => $validated['required_role']
-        ]);
     }
 }
