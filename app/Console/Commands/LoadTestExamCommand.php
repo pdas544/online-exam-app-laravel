@@ -292,8 +292,11 @@ class LoadTestExamCommand extends Command
                 continue;
             }
             $checked++;
+            // Idempotency = same request twice yields the same response:
+            // 200+200 with identical bodies, or identical rejections
+            // (e.g. terminated sessions 400 twice with the same body).
             foreach ($submits as $submit) {
-                if ($submit['status'] !== 200 || $submit['body'] !== $submits[0]['body']) {
+                if ($submit['status'] !== $submits[0]['status'] || $submit['body'] !== $submits[0]['body']) {
                     $bad[] = $bot;
 
                     break;
