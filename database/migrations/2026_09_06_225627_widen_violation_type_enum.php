@@ -39,9 +39,21 @@ return new class extends Migration
     public function up(): void
     {
         if (DB::getDriverName() === 'pgsql') {
-            foreach (self::ADDED as $value) {
-                DB::statement("ALTER TYPE violation_type ADD VALUE IF NOT EXISTS '{$value}'");
+            $isNativeEnum = DB::table('pg_type')->where('typname', 'violation_type')->exists();
+
+            if ($isNativeEnum) {
+                foreach (self::ADDED as $value) {
+                    DB::statement("ALTER TYPE violation_type ADD VALUE IF NOT EXISTS '{$value}'");
+                }
+
+                return;
             }
+
+            // Fresh installs: the base migration creates varchar + CHECK
+            // (Laravel enum), not a native PG enum — widen the CHECK instead.
+            $quoted = implode(',', array_map(fn ($v) => "'{$v}'", self::TYPES));
+            DB::statement('ALTER TABLE violation_logs DROP CONSTRAINT IF EXISTS violation_logs_violation_type_check');
+            DB::statement("ALTER TABLE violation_logs ADD CONSTRAINT violation_logs_violation_type_check CHECK (violation_type IN ({$quoted}))");
 
             return;
         }
