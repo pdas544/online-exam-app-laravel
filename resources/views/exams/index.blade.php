@@ -71,8 +71,8 @@
 
                         <div class="col-md-2">
                             <div class="input-group">
-                                <input type="text" name="year" class="form-control"
-                                       placeholder="Search by year" value="{{ request('year') }}">
+                                <input type="number" name="academic_year" class="form-control"
+                                       placeholder="Search by year" value="{{ request('academic_year') }}" min="2000" max="{{ date('Y') }}">
                                 <button class="btn btn-outline-secondary" type="submit">
                                     <i class="bi bi-search"></i>
                                 </button>

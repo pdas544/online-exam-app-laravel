@@ -432,6 +432,7 @@
             const questionTextDisplay = document.getElementById('questionTextDisplay');
             const pointsInput = document.getElementById('pointsInput');
             const originalPointsDisplay = document.getElementById('originalPointsDisplay');
+            const pointsUrlTemplate = "{{ url('/exams/' . $exam->id . '/questions/__Q__/points') }}";
 
             editButtons.forEach(button => {
                 button.addEventListener('click', function() {
@@ -439,7 +440,7 @@
                     const questionText = this.dataset.questionText;
                     const currentPoints = this.dataset.currentPoints;
 
-
+                    pointsForm.action = pointsUrlTemplate.replace('__Q__', encodeURIComponent(questionId));
                     questionTextDisplay.textContent = questionText;
                     pointsInput.value = currentPoints;
                     originalPointsDisplay.textContent = currentPoints;

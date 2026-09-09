@@ -27,7 +27,7 @@ class StoreUserRequest extends FormRequest
             'password' => $userId
                 ? ['sometimes', 'nullable', 'string', 'confirmed', \Illuminate\Validation\Rules\Password::min(8)->letters()->numbers()]
                 : ['required', 'string', 'confirmed', \Illuminate\Validation\Rules\Password::min(8)->letters()->numbers()],
-            'role' => 'required|in:admin,teacher',
+            'role' => 'required|in:admin,teacher,student',
             'department' => 'required_if:role,teacher|string|max:255',
             'designation' => 'required_if:role,teacher|string|max:255',
         ];

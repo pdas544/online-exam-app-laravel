@@ -68,6 +68,7 @@
                                     <select id="role" class="form-control @error('role') is-invalid @enderror" name="role" required onchange="toggleTeacherFields()">
                                         <option value="admin" {{ old('role') == 'admin' ? 'selected' : '' }}>Admin</option>
                                         <option value="teacher" {{ old('role') == 'teacher' ? 'selected' : '' }}>Teacher</option>
+                                        <option value="student" {{ old('role') == 'student' ? 'selected' : '' }}>Student</option>
                                     </select>
                                     @error('role')
                                     <span class="invalid-feedback" role="alert">
