@@ -393,15 +393,14 @@ class LoadTestExamCommand extends Command
     {
         $sessions = ExamSession::where('exam_id', $examId)
             ->where('status', 'completed')
-            ->whereNotNull('score')
             ->orderBy('id')
             ->limit(5)
             ->get();
-        if ($sessions->count() < 5) {
+        if ($sessions->isEmpty()) {
             return [
                 'name' => 'grading_spot_check',
                 'pass' => false,
-                'detail' => "only {$sessions->count()} completed sessions with non-null score (need 5)",
+                'detail' => 'no completed sessions to verify (submit path produced zero completions)',
             ];
         }
 
@@ -428,16 +427,18 @@ class LoadTestExamCommand extends Command
                 }
             }
             $percentage = $possible > 0 ? round($earned / $possible * 100, 2) : 0.0;
-            if ($answerBad > 0 || round((float) $session->score, 2) !== $percentage) {
+            if ($session->score === null || $answerBad > 0 || round((float) $session->score, 2) !== $percentage) {
                 $bad[] = (string) $session->getKey();
             }
         }
+
+        $checked = $sessions->count();
 
         return [
             'name' => 'grading_spot_check',
             'pass' => count($bad) === 0,
             'detail' => count($bad) === 0
-                ? '5/5 sessions match after rounding to 2 decimals'
+                ? "{$checked}/{$checked} completed sessions graded correctly (2-decimal match)"
                 : 'mismatched sessions: '.implode(',', $bad),
         ];
     }

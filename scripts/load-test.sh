@@ -13,11 +13,15 @@ restore() {
         cp "$BACKUP" "$ROOT/.env"
         rm -f "$BACKUP"
     fi
-    if [ -n "${WORKER_PID:-}" ]; then
-        kill "$WORKER_PID" 2>/dev/null || true
+    if [ -n "${SUPERVISOR_PID:-}" ]; then
+        kill "$SUPERVISOR_PID" 2>/dev/null || true
     fi
+    pkill -f "queue:work --sleep=1 --tries=1" 2>/dev/null || true
 }
 trap restore EXIT INT TERM
+
+# Never compete with a stale wrapper worker (e.g. after a killed run).
+pkill -f "queue:work --sleep=1 --tries=1" 2>/dev/null || true
 
 if [ -f "$BACKUP" ]; then
     echo "Refusing: $BACKUP exists (a previous run did not restore). Inspect and remove it, then retry." >&2
@@ -54,14 +58,25 @@ EOF
 
 php artisan config:clear --ansi > /dev/null
 
+# Tables must exist BEFORE the worker boots (it probes the cache table for
+# restart signals and dies on missing relations).
+php artisan migrate --force --ansi > /dev/null
+
 # Stale jobs from a killed run would otherwise be graded against THIS run's
 # fresh ids — start from an empty queue.
 php artisan queue:clear redis --queue=default > /dev/null 2>&1 || true
 
 export APP_KEY="$APP_KEY"  # CLI safety net; fpm workers read the file above
-php artisan queue:work --sleep=0 --tries=1 > "$WORKER_LOG" 2>&1 &
-WORKER_PID=$!
-sleep 3
+# Supervised worker: restarts on crash (e.g. a migrate:fresh drop window
+# under a live worker). Pattern-scoped so dev workers are never touched.
+(
+    while true; do
+        php artisan queue:work --sleep=1 --tries=1 >> "$WORKER_LOG" 2>&1
+        sleep 2
+    done
+) &
+SUPERVISOR_PID=$!
+sleep 5
 
 php artisan exams:load-test "$@"
 STATUS=$?
