@@ -15,6 +15,7 @@ use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Queue;
 
 class LoadTestExamCommand extends Command
 {
@@ -446,9 +447,11 @@ class LoadTestExamCommand extends Command
      */
     private function assertQueuesDrained(): array
     {
+        // Queue::size() honors the configured driver (database AND redis);
+        // polling the jobs table directly is vacuous on non-database drivers.
         try {
             for ($waited = 0; $waited < 60; $waited++) {
-                $jobs = DB::table('jobs')->count();
+                $jobs = Queue::size();
                 $failed = DB::table('failed_jobs')->count();
                 if ($jobs === 0 && $failed === 0) {
                     return [
@@ -459,7 +462,7 @@ class LoadTestExamCommand extends Command
                 }
                 sleep(1);
             }
-            $jobs = DB::table('jobs')->count();
+            $jobs = Queue::size();
             $failed = DB::table('failed_jobs')->count();
 
             return [
