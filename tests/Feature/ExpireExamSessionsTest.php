@@ -37,9 +37,12 @@ class ExpireExamSessionsTest extends TestCase
 
     private function makeSession(string $status, ?string $startedAt): ExamSession
     {
+        // One active session per (exam, student) is enforced at the DB level,
+        // so each fixture session gets its own student — mirroring production,
+        // where a second start() would return the existing session.
         return ExamSession::create([
             'exam_id' => $this->exam->id,
-            'student_id' => $this->student->id,
+            'student_id' => User::factory()->create(['role' => 'student'])->id,
             'teacher_id' => $this->exam->teacher_id,
             'status' => $status,
             'started_at' => $startedAt,

@@ -7,10 +7,36 @@ use App\Models\Exam;
 use App\Models\ExamSession;
 use App\Models\StudentAnswer;
 use DomainException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class ExamSessionService
 {
+    private const START_LOCK_TTL = 10;
+
+    private const SUBMIT_LOCK_TTL = 10;
+
+    private const GRADING_REDISPATCH_AFTER_MINUTES = 15;
+
+    public static function startLockKey(int $examId, int $studentId): string
+    {
+        return "exam-start:{$examId}:{$studentId}";
+    }
+
+    public static function submitLockKey(int $sessionId): string
+    {
+        return "exam-submit:{$sessionId}";
+    }
+
+    /**
+     * Lock wait in seconds. Tunable via `exam.start_lock_wait` (default 5);
+     * tests lower it so contention tests fail fast instead of sleeping.
+     */
+    private function lockWaitSeconds(): int
+    {
+        return max(1, (int) config('exam.start_lock_wait', 5));
+    }
+
     /**
      * Start (or resume) an exam for a student.
      *
@@ -24,50 +50,53 @@ class ExamSessionService
             throw new DomainException('This exam is not available at this time.');
         }
 
-        $active = ExamSession::where('exam_id', $exam->id)
-            ->where('student_id', $studentId)
-            ->whereIn('status', ['scheduled', 'in_progress', 'paused'])
-            ->first();
+        return Cache::lock(static::startLockKey($exam->id, $studentId), self::START_LOCK_TTL)
+            ->block($this->lockWaitSeconds(), function () use ($exam, $studentId) {
+                $active = ExamSession::where('exam_id', $exam->id)
+                    ->where('student_id', $studentId)
+                    ->whereIn('status', ['scheduled', 'in_progress', 'paused'])
+                    ->first();
 
-        if ($active) {
-            return $active;
-        }
+                if ($active) {
+                    return $active;
+                }
 
-        $completedAttempts = ExamSession::where('exam_id', $exam->id)
-            ->where('student_id', $studentId)
-            ->where('status', 'completed')
-            ->count();
+                $completedAttempts = ExamSession::where('exam_id', $exam->id)
+                    ->where('student_id', $studentId)
+                    ->where('status', 'completed')
+                    ->count();
 
-        if ($completedAttempts >= ($exam->max_attempts ?? 1)) {
-            throw new DomainException('You have already completed this exam.');
-        }
+                if ($completedAttempts >= ($exam->max_attempts ?? 1)) {
+                    throw new DomainException('You have already completed this exam.');
+                }
 
-        return DB::transaction(function () use ($exam, $studentId) {
-            $exam->loadMissing(['questions' => fn ($query) => $query->orderBy('order_index')]);
-            $questions = $exam->questions;
+                return DB::transaction(function () use ($exam, $studentId) {
+                    $exam->loadMissing(['questions' => fn ($query) => $query->orderBy('order_index')]);
+                    $questions = $exam->questions;
 
-            $session = ExamSession::create([
-                'exam_id' => $exam->id,
-                'student_id' => $studentId,
-                'teacher_id' => $exam->teacher_id,
-                'status' => 'scheduled',
-                'started_at' => null,
-                'total_questions' => $questions->count(),
-                'ip_address' => request()->ip(),
-                'user_agent' => request()->userAgent(),
-            ]);
+                    $session = ExamSession::create([
+                        'exam_id' => $exam->id,
+                        'student_id' => $studentId,
+                        'teacher_id' => $exam->teacher_id,
+                        'status' => 'scheduled',
+                        'started_at' => null,
+                        'total_questions' => $questions->count(),
+                        'ip_address' => request()->ip(),
+                        'user_agent' => request()->userAgent(),
+                    ]);
 
-            foreach ($questions as $question) {
-                StudentAnswer::create([
-                    'exam_session_id' => $session->id,
-                    'question_id' => $question->id,
-                    'exam_id' => $exam->id,
-                    'max_points' => $question->pivot->points_override ?? $question->points,
-                ]);
-            }
+                    foreach ($questions as $question) {
+                        StudentAnswer::create([
+                            'exam_session_id' => $session->id,
+                            'question_id' => $question->id,
+                            'exam_id' => $exam->id,
+                            'max_points' => $question->pivot->points_override ?? $question->points,
+                        ]);
+                    }
 
-            return $session;
-        });
+                    return $session;
+                });
+            });
     }
 
     /**
@@ -89,18 +118,29 @@ class ExamSessionService
      */
     public function submit(ExamSession $session): array
     {
-        if ($session->status === 'completed') {
-            if ($session->score === null) {
-                GradeExamSession::dispatch($session->id);
+        return Cache::lock(static::submitLockKey($session->id), self::SUBMIT_LOCK_TTL)
+            ->block($this->lockWaitSeconds(), fn () => $this->submitOnce($session->fresh()));
+    }
 
-                return ['percentage' => 0.0, 'passed' => false, 'grading_pending' => true];
+    private function submitOnce(ExamSession $session): array
+    {
+        if ($session->status === 'completed') {
+            if ($session->score !== null) {
+                return [
+                    'percentage' => (float) $session->score,
+                    'passed' => (bool) $session->passed,
+                    'grading_pending' => false,
+                ];
             }
 
-            return [
-                'percentage' => (float) $session->score,
-                'passed' => (bool) $session->passed,
-                'grading_pending' => false,
-            ];
+            // Completed but ungraded: re-dispatch only when no grading job was
+            // queued recently (worker-down recovery), so submit bursts and
+            // double-clicks don't pile duplicate grading jobs.
+            if ($this->gradingDispatchStale($session)) {
+                $this->dispatchGrading($session);
+            }
+
+            return ['percentage' => 0.0, 'passed' => false, 'grading_pending' => true];
         }
 
         if ($session->status !== 'in_progress') {
@@ -112,16 +152,33 @@ class ExamSessionService
                 ? abs((int) $session->started_at->diffInSeconds(now(), false))
                 : 0;
 
+            // Stamp the grading dispatch in the same write so a fresh submit
+            // costs no extra query; re-dispatches only ever touch this column.
             $session->update([
                 'status' => 'completed',
                 'submitted_at' => now(),
                 'time_spent' => $timeSpent,
+                'grading_dispatched_at' => now(),
             ]);
         });
 
         GradeExamSession::dispatch($session->id);
 
         return ['percentage' => 0.0, 'passed' => false, 'grading_pending' => true];
+    }
+
+    private function gradingDispatchStale(ExamSession $session): bool
+    {
+        $dispatchedAt = $session->grading_dispatched_at;
+
+        return $dispatchedAt === null
+            || $dispatchedAt->lt(now()->subMinutes(self::GRADING_REDISPATCH_AFTER_MINUTES));
+    }
+
+    private function dispatchGrading(ExamSession $session): void
+    {
+        GradeExamSession::dispatch($session->id);
+        $session->update(['grading_dispatched_at' => now()]);
     }
 
     /**
