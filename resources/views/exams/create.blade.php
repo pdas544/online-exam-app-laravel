@@ -241,7 +241,10 @@
                         </div>
 
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <button type="reset" class="btn btn-outline-secondary me-2">
+                            <a href="{{ route('exams.index') }}" class="btn btn-outline-secondary me-2">
+                                <i class="fas fa-times"></i> Cancel
+                            </a>
+                            <button type="reset" class="btn btn-outline-secondary me-2" onclick="return confirm('Reset all entered data?')">
                                 <i class="fas fa-redo"></i> Reset
                             </button>
                             <button type="submit" class="btn btn-primary">

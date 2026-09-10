@@ -26,7 +26,9 @@ class ExamTaker {
         this.remainingSeconds = null;
         this.lastTimerSyncAt = 0;
 
-        console.log('Total questions found:', this.totalQuestions);
+        if (this.debug) {
+            console.log('Total questions found:', this.totalQuestions);
+        }
 
         if (this.totalQuestions === 0) {
             console.error('No questions found! Check if .question-card elements exist');
@@ -36,12 +38,14 @@ class ExamTaker {
     }
 
     init() {
-        console.log('%c📝 Exam Taker Initialized', 'color: purple; font-size: 14px; font-weight: bold');
-        console.log('Session ID:', this.sessionId);
-        console.log('Exam ID:', this.examId);
-        console.log('Total Questions:', this.totalQuestions);
-        console.log('Auto-save Interval:', this.config.autoSaveInterval, 'seconds');
-        console.log('----------------------------------------');
+        if (this.debug) {
+            console.log('%c📝 Exam Taker Initialized', 'color: purple; font-size: 14px; font-weight: bold');
+            console.log('Session ID:', this.sessionId);
+            console.log('Exam ID:', this.examId);
+            console.log('Total Questions:', this.totalQuestions);
+            console.log('Auto-save Interval:', this.config.autoSaveInterval, 'seconds');
+            console.log('----------------------------------------');
+        }
 
         this.checkElements();
         this.setupEventListeners();
@@ -141,11 +145,11 @@ class ExamTaker {
         console.log('Event listeners setup complete');
     }
 
-    showQuestion(index) {
-        console.log(`showQuestion called with index: ${index}`);
-
+    showQuestion(index, { focus = true } = {}) {
         if (index < 0 || index >= this.totalQuestions) {
-            console.warn(`Invalid index: ${index}, total questions: ${this.totalQuestions}`);
+            if (this.debug) {
+                console.warn(`Invalid index: ${index}, total questions: ${this.totalQuestions}`);
+            }
             return;
         }
 
@@ -159,7 +163,14 @@ class ExamTaker {
         if (selectedCard) {
             selectedCard.classList.remove('d-none');
             this.currentQuestionIndex = index;
-            console.log(`Showing question ${index + 1}`);
+            if (focus) {
+                const heading = selectedCard.querySelector('h5');
+                if (heading) {
+                    heading.setAttribute('tabindex', '-1');
+                    heading.focus({ preventScroll: false });
+                }
+                selectedCard.scrollIntoView({ block: 'start' });
+            }
         } else {
             console.error(`Question card with data-index="${index}" not found`);
         }
@@ -184,19 +195,15 @@ class ExamTaker {
         if (nextBtn) {
             nextBtn.disabled = index === this.totalQuestions - 1;
         }
-
-        console.log(`🔍 Navigated to question ${index + 1}`);
     }
 
     previousQuestion() {
-        console.log(`previousQuestion called, current index: ${this.currentQuestionIndex}`);
         if (this.currentQuestionIndex > 0) {
             this.showQuestion(this.currentQuestionIndex - 1);
         }
     }
 
     nextQuestion() {
-        console.log(`nextQuestion called, current index: ${this.currentQuestionIndex}`);
         if (this.currentQuestionIndex < this.totalQuestions - 1) {
             this.showQuestion(this.currentQuestionIndex + 1);
         }
@@ -502,7 +509,7 @@ class ExamTaker {
             return true;
         } catch (error) {
             console.error('Error beginning exam session:', error);
-            alert(error.message || 'Unable to start exam right now. Please try again.');
+            this.showWarning(error.message || 'Unable to start exam right now. Please try again.');
             return false;
         }
     }
@@ -708,10 +715,12 @@ class ExamTaker {
                 }
             })
             .then(data => {
-                console.log('Violation log response:', data);
+                if (this.debug) {
+                    console.log('Violation log response:', data);
+                }
                 if (data.terminated) {
-                    alert('Exam terminated due to multiple violations.');
-                    window.location.href = data.redirect || '/dashboard';
+                    this.showWarning('Exam terminated due to multiple violations.');
+                    window.location.href = data.redirect || '/student/dashboard';
                 } else if (data.warning) {
                     this.showWarning(data.warning);
                 }
@@ -861,17 +870,32 @@ class ExamTaker {
     }
 
     updateProgress(progress) {
-        console.log('Updating progress:', progress);
+        if (this.debug) {
+            console.log('Updating progress:', progress);
+        }
 
         const answeredCount = document.getElementById('answered-count');
+        const reviewCount = document.getElementById('review-count');
         const progressBar = document.getElementById('progress-bar');
+        const progressContainer = document.getElementById('progress-container');
 
         if (answeredCount) {
             answeredCount.textContent = progress.answered;
         }
 
+        if (reviewCount && typeof progress.marked !== 'undefined') {
+            reviewCount.textContent = progress.marked;
+        }
+
         if (progressBar) {
-            progressBar.style.width = `${(progress.answered / progress.total) * 100}%`;
+            const pct = progress.total > 0 ? (progress.answered / progress.total) * 100 : 0;
+            progressBar.style.width = `${pct}%`;
+            progressBar.setAttribute('aria-valuenow', String(progress.answered));
+        }
+
+        if (progressContainer) {
+            progressContainer.setAttribute('aria-valuemax', String(progress.total));
+            progressContainer.setAttribute('aria-valuenow', String(progress.answered));
         }
     }
 
@@ -879,9 +903,10 @@ class ExamTaker {
         const warningDiv = document.createElement('div');
         warningDiv.className = 'alert alert-warning alert-dismissible fade show position-fixed top-0 end-0 m-3';
         warningDiv.style.zIndex = '9999';
+        warningDiv.setAttribute('role', 'alert');
         warningDiv.innerHTML = `
             <strong>Warning:</strong> ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         `;
         document.body.appendChild(warningDiv);
 
@@ -1079,7 +1104,7 @@ class ExamTaker {
 
     forceEndExam(message = 'Your exam was ended by the Admin', redirect = '/student/dashboard?ended=1') {
         this.cleanup();
-        alert(message);
+        this.showWarning(message);
         window.location.href = redirect;
     }
 
@@ -1098,25 +1123,20 @@ class ExamTaker {
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM fully loaded, checking for exam container...');
-
     const examContainer = document.getElementById('exam-container');
     if (examContainer) {
-        console.log('Exam container found, initializing ExamTaker');
-        console.log('Session ID:', examContainer.dataset.sessionId);
-        console.log('Exam ID:', examContainer.dataset.examId);
-        console.log('Config:', examContainer.dataset.config);
-
         try {
+            const config = JSON.parse(examContainer.dataset.config);
+            if (config.debug) {
+                console.log('Exam container found, initializing ExamTaker');
+            }
             new ExamTaker(
                 examContainer.dataset.sessionId,
                 examContainer.dataset.examId,
-                JSON.parse(examContainer.dataset.config)
+                config
             );
         } catch (error) {
             console.error('Error initializing ExamTaker:', error);
         }
-    } else {
-        console.log('No exam container found on this page');
     }
 });

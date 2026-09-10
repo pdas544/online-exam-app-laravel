@@ -12,8 +12,13 @@
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
+                    @if(auth()->user()->isAdmin())
                     <li class="breadcrumb-item"><a href="{{ route('admin.dashboard') }}">Admin Dashboard</a></li>
-                    <li class="breadcrumb-item active">Questions</li>
+                    @elseif(auth()->user()->isTeacher())
+                    <li class="breadcrumb-item"><a href="{{ route('teacher.dashboard') }}">Teacher Dashboard</a></li>
+                    @endif
+                    <li class="breadcrumb-item"><a href="{{ route('questions.index') }}">Questions</a></li>
+                    <li class="breadcrumb-item active">Edit #{{ $question->id }}</li>
                 </ol>
             </nav>
         </div>
