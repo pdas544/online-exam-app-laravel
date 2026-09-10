@@ -26,7 +26,19 @@ class DashboardService
         return [
             'resumeExams' => $this->resumeExams($studentId),
             'availableExams' => $this->availableExams($studentId),
+            'pendingGrades' => $this->pendingGradesCount($studentId),
         ];
+    }
+
+    /**
+     * Completed but ungraded sessions — the student-facing "grading…" state.
+     */
+    public function pendingGradesCount(int $studentId): int
+    {
+        return ExamSession::where('student_id', $studentId)
+            ->where('status', 'completed')
+            ->whereNull('score')
+            ->count();
     }
 
     /**
@@ -130,6 +142,7 @@ class DashboardService
                     'marks_secured' => (float) ($session->marks_secured ?? 0),
                     'total_marks' => (float) ($session->total_marks ?? 0),
                     'submitted_at' => optional($session->submitted_at)->format('M d, Y h:i A'),
+                    'grading_pending' => $session->score === null,
                 ];
             })->toArray();
     }

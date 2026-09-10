@@ -9,7 +9,7 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class TeacherWarning implements ShouldBroadcast
+class GradingCompleted implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -19,13 +19,19 @@ class TeacherWarning implements ShouldBroadcast
 
     public int $studentId;
 
-    public string $message;
+    public int $examId;
 
-    public function __construct(ExamSession $session, string $message)
+    public float $score;
+
+    public bool $passed;
+
+    public function __construct(ExamSession $session, float $score, bool $passed)
     {
         $this->sessionId = $session->id;
         $this->studentId = $session->student_id;
-        $this->message = $message;
+        $this->examId = $session->exam_id;
+        $this->score = $score;
+        $this->passed = $passed;
     }
 
     public function broadcastOn()
@@ -35,6 +41,6 @@ class TeacherWarning implements ShouldBroadcast
 
     public function broadcastAs()
     {
-        return 'teacher.warning';
+        return 'grading.completed';
     }
 }

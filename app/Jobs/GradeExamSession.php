@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Events\GradingCompleted;
 use App\Models\ExamSession;
 use App\Services\GradingService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -32,10 +33,15 @@ class GradeExamSession implements ShouldQueue
         $grading->gradeSession($session);
         $score = $grading->calculateScore($session);
 
+        $percentage = round($score['percentage'], 2);
+        $passed = $score['percentage'] >= ($session->exam->passing_marks ?? 40);
+
         $session->update([
-            'score' => round($score['percentage'], 2),
-            'passed' => $score['percentage'] >= ($session->exam->passing_marks ?? 40),
+            'score' => $percentage,
+            'passed' => $passed,
         ]);
+
+        broadcast(new GradingCompleted($session, $percentage, $passed))->toOthers();
     }
 
     public function failed(\Throwable $exception): void

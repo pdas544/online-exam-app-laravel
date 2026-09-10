@@ -17,6 +17,14 @@
             </form>
         </div>
 
+        @if(! empty($pendingGrades))
+            <div class="alert alert-info alert-dismissible fade show" role="status">
+                <i class="bi bi-hourglass-split me-2"></i>
+                {{ $pendingGrades }} {{ Str::plural('exam', $pendingGrades) }} submitted — grading in progress.
+                Check <a href="{{ route('student.results.index') }}" class="alert-link">My Results</a> for your score.
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        @endif
         @if(request()->query('ended'))
             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                 Your exam was ended by the Admin.
@@ -136,3 +144,22 @@
         </div>
     </div>
 @endsection
+
+@push('scripts')
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!window.Echo) return;
+            window.Echo.private('student.{{ auth()->id() }}')
+                .listen('.grading.completed', function(e) {
+                    var banner = document.createElement('div');
+                    banner.className = 'alert alert-success alert-dismissible fade show';
+                    banner.setAttribute('role', 'status');
+                    banner.innerHTML = 'Grading complete — your score is ready. ' +
+                        '<a href="{{ route('student.results.index') }}" class="alert-link">View My Results</a>' +
+                        '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+                    var container = document.querySelector('.container-fluid.py-3');
+                    if (container) container.prepend(banner);
+                });
+        });
+    </script>
+@endpush

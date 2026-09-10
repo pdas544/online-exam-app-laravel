@@ -24,6 +24,7 @@ class StudentDashboardController extends Controller
         return view('dashboard.student.index', [
             'resumeExams' => $overview['resumeExams'],
             'availableExams' => $overview['availableExams'],
+            'pendingGrades' => $overview['pendingGrades'],
         ]);
     }
 
