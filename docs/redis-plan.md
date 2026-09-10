@@ -90,3 +90,17 @@ Explicitly **not** queued: `saveAnswer` itself (students need instant confirmati
 - Sessions stay `database` — correct for a single box, zero migration risk.
 - No Reverb Redis scaling — a single node doesn't need it.
 - `saveAnswer` not queued — instant ACK beats queue-loss risk at 100 concurrency; burst absorbed by locks + indexes instead.
+
+## 5. Task 0 baseline (recorded 2026-09-10, worktree `feat/redis-queue`)
+- Dep: `predis/predis ^3.6` added (`composer.json`), `Predis\Client()->ping()` → PONG against local Redis 8.0.2
+  (`maxmemory 0`, `appendonly no`, `maxmemory-policy noeviction` — Task 7 should set `maxmemory 256mb` + `appendonly yes`).
+- Suite: 115 passed (838 assertions) with predis installed — no behavior change.
+- In-process perf: `SubmitLoadTest` 100 simultaneous submits ~0.4–0.6s, query budget respected.
+- Live 100-baseline: **blocked, rig misconfigured** (do not treat the 2026-09-10 smoke run as a baseline —
+  bots got 404 on `/login`, zero completions). Findings to fix before the Task 7 gate:
+  1. `php artisan reverb:start --port=8080` (from `composer run dev`) is squatting on port 8080, which
+     `deploy/loadtest/nginx.conf` also claims — **port conflict**: default `REVERB_PORT=8080` collides with the
+     load-test URL. Move Reverb (e.g. 8081) or document that `dev` and load-test runs are mutually exclusive.
+  2. `php8.4-fpm` is down (nothing on 127.0.0.1:9000), so nginx `:8080` can never serve Laravel even with the
+     port free. Start the `loadtest` pool before any live run.
+- No dev-DB pollution from the invalid smoke run (bots never authenticated; 0 bot users/sessions in `exam_system`).
