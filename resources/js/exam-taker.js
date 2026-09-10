@@ -55,6 +55,8 @@ class ExamTaker {
         this.setupWebSocket();
         this.setupBeforeUnload(); // Add this
         this.setupLobbyModal();
+        this.hasWarnedHighViolations = false;
+        this.setupStatusGuard();
 
         if (!this.startLocked) {
             this.startExamFlow();
@@ -718,6 +720,13 @@ class ExamTaker {
                 if (this.debug) {
                     console.log('Violation log response:', data);
                 }
+                // 202 accepted: the worker persists the violation. Terminal
+                // outcomes (auto-terminate) land seconds later — do one
+                // follow-up status check instead of trusting a stale reply.
+                if (data.accepted) {
+                    setTimeout(() => this.checkTerminalStatus(), 3000);
+                    return;
+                }
                 if (data.terminated) {
                     this.showWarning('Exam terminated due to multiple violations.');
                     window.location.href = data.redirect || '/student/dashboard';
@@ -728,6 +737,46 @@ class ExamTaker {
             .catch(error => {
                 console.error('Error logging violation:', error);
             });
+    }
+
+    checkTerminalStatus() {
+        if (this.isSubmitting || this.allowUnload) return Promise.resolve();
+
+        return fetch(`/exam/session/${this.sessionId}/status`, {
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': this.config.csrf,
+            },
+        })
+            .then(response => {
+                if (!response.ok) return null;
+                return response.json();
+            })
+            .then(data => {
+                if (!data) return;
+                if (data.status === 'terminated' || data.status === 'expired') {
+                    this.showWarning('Your exam session has ended.');
+                    window.location.href = '/student/dashboard?ended=1';
+                } else if (!this.hasWarnedHighViolations && (data.violation_count || 0) >= 3) {
+                    this.hasWarnedHighViolations = true;
+                    this.showWarning('Warning: Further violations will terminate your exam.');
+                }
+            })
+            .catch(error => {
+                if (this.debug) {
+                    console.warn('Terminal status check failed:', error);
+                }
+            });
+    }
+
+    setupStatusGuard() {
+        // Safety net for async outcomes the violation reply can't carry:
+        // auto-termination and teacher force-end (both invisible without
+        // Reverb). Cheap: one /status GET every 20s while the exam is live.
+        this.statusGuardInterval = setInterval(() => {
+            if (this.paused || this.isSubmitting || this.allowUnload) return;
+            this.checkTerminalStatus();
+        }, 20000);
     }
 
     reenableFullscreen() {
@@ -1094,6 +1143,10 @@ class ExamTaker {
         if (this.autoSaveInterval) {
             clearInterval(this.autoSaveInterval);
             this.autoSaveInterval = null;
+        }
+        if (this.statusGuardInterval) {
+            clearInterval(this.statusGuardInterval);
+            this.statusGuardInterval = null;
         }
     }
 

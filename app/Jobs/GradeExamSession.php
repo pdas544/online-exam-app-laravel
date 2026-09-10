@@ -12,7 +12,14 @@ class GradeExamSession implements ShouldQueue
 {
     use Queueable;
 
-    public function __construct(private int $sessionId) {}
+    public int $tries = 3;
+
+    public array $backoff = [10, 30, 60];
+
+    public function __construct(private int $sessionId)
+    {
+        $this->onQueue('grading');
+    }
 
     public function handle(GradingService $grading): void
     {

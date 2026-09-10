@@ -4,14 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Events\ExamEnded;
 use App\Events\StudentJoined;
-use App\Events\ViolationDetected;
 use App\Http\Requests\LogViolationRequest;
 use App\Http\Requests\SaveAnswerRequest;
+use App\Jobs\LogExamViolation;
 use App\Models\Exam;
 use App\Models\ExamSession;
 use App\Models\StudentAnswer;
 use App\Services\ExamSessionService;
-use App\Services\ViolationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -19,7 +18,6 @@ class ExamSessionController extends Controller
 {
     public function __construct(
         private ExamSessionService $sessions,
-        private ViolationService $violations,
     ) {}
 
     /**
@@ -190,39 +188,25 @@ class ExamSessionController extends Controller
     }
 
     /**
-     * Log violation (AJAX endpoint)
+     * Log violation (AJAX endpoint). Dispatch-only: the worker persists the
+     * log, pauses on focus loss, and notifies the teacher. The client learns
+     * terminal outcomes via the follow-up /status check in exam-taker.js.
      */
     public function logViolation(LogViolationRequest $request, ExamSession $session)
     {
         $this->authorize('view', $session);
 
-        $violation = $this->violations->record(
-            $session,
+        LogExamViolation::dispatch(
+            $session->id,
             $request->type,
             $request->description,
             $request->metadata ?? []
         );
 
-        $this->violations->pauseOnFocusLoss($session, $request->type);
-
-        // Notify teacher via broadcast
-        broadcast(new ViolationDetected($violation))->toOthers();
-
-        // If auto-terminated, return special response
-        if ($session->status === 'terminated') {
-            return response()->json([
-                'terminated' => true,
-                'reason' => 'Multiple violations detected',
-                'redirect' => route($this->dashboardRoute()),
-            ]);
-        }
-
         return response()->json([
-            'success' => true,
-            'violation_count' => $session->violation_count,
-            'warning' => $session->violation_count >= 3 ?
-                'Warning: Further violations will terminate your exam.' : null,
-        ]);
+            'accepted' => true,
+            'status_url' => route('exam.session.status', $session),
+        ], 202);
     }
 
     /**

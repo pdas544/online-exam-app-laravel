@@ -5,7 +5,7 @@
 | Process | Command | Notes |
 |---|---|---|
 | Web | `php artisan serve` (dev) or nginx + php-fpm | :8000 in dev |
-| Queue | `queue:work redis --queue=default,violations --tries=3` | via supervisor: `deploy/supervisor.exam-system.conf` |
+| Queue | `queue:work redis --queue=grading,violations,broadcasts,default --tries=3` (per-queue programs) | via supervisor: `deploy/supervisor.exam-system.conf` |
 | Reverb | `reverb:start --port=8080` | Browsers hit `ws(s)://host:8080` |
 | Scheduler | cron `* * * * *` → `schedule:run` | Drives `exams:expire-sessions` every minute |
 
