@@ -7,6 +7,11 @@ set -u
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BACKUP="$ROOT/.env.before-loadtest"
 WORKER_LOG="$ROOT/.superpowers/sdd/2026-09-08-exam-load-test/worker.log"
+# Must mirror the app's queue split (Task 3): a worker on default alone
+# leaves grading/violations/broadcasts stranded while the drain check
+# passes vacuously. Pattern doubles as the pkill scope below.
+WORKER_QUEUES="grading,violations,broadcasts,default"
+WORKER_PATTERN="queue:work --queue=${WORKER_QUEUES}"
 
 restore() {
     if [ -f "$BACKUP" ]; then
@@ -16,11 +21,13 @@ restore() {
     if [ -n "${SUPERVISOR_PID:-}" ]; then
         kill "$SUPERVISOR_PID" 2>/dev/null || true
     fi
-    pkill -f "queue:work --sleep=1 --tries=1" 2>/dev/null || true
+    pkill -f "$WORKER_PATTERN" 2>/dev/null || true
 }
 trap restore EXIT INT TERM
 
 # Never compete with a stale wrapper worker (e.g. after a killed run).
+pkill -f "$WORKER_PATTERN" 2>/dev/null || true
+# Legacy single-queue command from before the queue split — same reason.
 pkill -f "queue:work --sleep=1 --tries=1" 2>/dev/null || true
 
 if [ -f "$BACKUP" ]; then
@@ -73,8 +80,10 @@ php artisan config:clear --ansi > /dev/null
 php artisan migrate --force --ansi > /dev/null
 
 # Stale jobs from a killed run would otherwise be graded against THIS run's
-# fresh ids — start from an empty queue.
-php artisan queue:clear redis --queue=default > /dev/null 2>&1 || true
+# fresh ids — start from empty queues (all four, not just default).
+for q in grading violations broadcasts default; do
+    php artisan queue:clear redis --queue="$q" > /dev/null 2>&1 || true
+done
 
 export APP_KEY="$APP_KEY"  # CLI safety net; fpm workers read the file above
 # Supervised worker: restarts on crash (e.g. a migrate:fresh drop window
@@ -84,7 +93,7 @@ export APP_KEY="$APP_KEY"  # CLI safety net; fpm workers read the file above
 mkdir -p "$(dirname "$WORKER_LOG")"
 (
     while true; do
-        php artisan queue:work --sleep=1 --tries=1 >> "$WORKER_LOG" 2>&1
+        php artisan queue:work --queue="$WORKER_QUEUES" --sleep=1 --tries=1 >> "$WORKER_LOG" 2>&1
         sleep 2
     done
 ) &

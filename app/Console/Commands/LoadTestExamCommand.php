@@ -450,9 +450,24 @@ class LoadTestExamCommand extends Command
     {
         // Queue::size() honors the configured driver (database AND redis);
         // polling the jobs table directly is vacuous on non-database drivers.
+        // Size every app queue: the default-only size() passes vacuously while
+        // grading/violations/broadcasts pile up unworked.
+        $drainSize = function (): int {
+            $total = 0;
+            foreach (['grading', 'violations', 'broadcasts'] as $queue) {
+                try {
+                    $total += Queue::connection()->size($queue);
+                } catch (\Throwable) {
+                    // Unresolvable queue on this driver counts as un-drained.
+                    return PHP_INT_MAX;
+                }
+            }
+
+            return $total + Queue::size();
+        };
         try {
             for ($waited = 0; $waited < 60; $waited++) {
-                $jobs = Queue::size();
+                $jobs = $drainSize();
                 $failed = DB::table('failed_jobs')->count();
                 if ($jobs === 0 && $failed === 0) {
                     return [
@@ -463,7 +478,7 @@ class LoadTestExamCommand extends Command
                 }
                 sleep(1);
             }
-            $jobs = Queue::size();
+            $jobs = $drainSize();
             $failed = DB::table('failed_jobs')->count();
 
             return [
