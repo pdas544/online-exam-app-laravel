@@ -2,11 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\GradeExamSession;
+use App\Jobs\LogExamViolation;
 use App\Models\Exam;
 use App\Models\ExamSession;
 use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 
 class MetricsTest extends TestCase
@@ -47,6 +50,34 @@ class MetricsTest extends TestCase
         ]);
         $this->assertEquals(1, $response->json('sessions_by_status.in_progress'));
         $this->assertEquals(1, $response->json('live_exams'));
+    }
+
+    public function test_queue_depth_sums_redis_queues(): void
+    {
+        Queue::fake();
+        config()->set('queue.default', 'redis');
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        GradeExamSession::dispatch(1);
+        LogExamViolation::dispatch(2, 'tab_switch', 'x', []);
+
+        $response = $this->actingAs($admin)->getJson(route('admin.metrics'));
+
+        $response->assertOk()->assertJsonPath('queue_depth', 2);
+    }
+
+    public function test_queue_depth_falls_back_when_redis_unreachable(): void
+    {
+        config()->set('queue.default', 'redis');
+        config()->set('database.redis.default.port', 6390);
+        config()->set('database.redis.default.read_timeout', 0.2);
+        config()->set('database.redis.default.timeout', 0.2);
+        $admin = User::factory()->create(['role' => 'admin']);
+
+        $response = $this->actingAs($admin)->getJson(route('admin.metrics'));
+
+        $response->assertOk();
+        $this->assertIsInt($response->json('queue_depth'));
     }
 
     public function test_metrics_forbidden_for_non_admins(): void

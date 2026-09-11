@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\ViolationLog;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 
 /**
  * Dashboard read models: student/teacher/admin overviews, results shaping,
@@ -145,6 +146,36 @@ class DashboardService
                     'grading_pending' => $session->score === null,
                 ];
             })->toArray();
+    }
+
+    /**
+     * Pending jobs across the queues this app uses. On the Redis driver the
+     * DB `jobs` table stays empty, so sum the real queues instead; any Redis
+     * outage falls back to the DB count rather than 500ing the dashboard.
+     */
+    private function queueDepth(): int
+    {
+        if (config('queue.default') !== 'redis') {
+            return DB::table('jobs')->count();
+        }
+
+        try {
+            $queues = array_unique([
+                'grading',
+                'violations',
+                'broadcasts',
+                (string) config('queue.connections.redis.queue', 'default'),
+            ]);
+
+            $total = 0;
+            foreach ($queues as $queue) {
+                $total += Queue::connection('redis')->size($queue);
+            }
+
+            return $total;
+        } catch (\Throwable) {
+            return DB::table('jobs')->count();
+        }
     }
 
     /**
@@ -301,7 +332,7 @@ class DashboardService
                 ->groupBy('status')
                 ->pluck('count', 'status')
                 ->toArray(),
-            'queue_depth' => DB::table('jobs')->count(),
+            'queue_depth' => $this->queueDepth(),
             'failed_jobs' => DB::table('failed_jobs')->count(),
             'violations_last_hour' => ViolationLog::where('created_at', '>=', now()->subHour())->count(),
             'ungraded_completions' => ExamSession::where('status', 'completed')

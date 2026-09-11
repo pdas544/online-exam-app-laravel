@@ -39,6 +39,33 @@ scheduler must be started separately (see `codebase-summary` §5).
   `php artisan migrate --force` to confirm schema currency.
 - TODO (open): offsite sync of `$BACKUP_DIR` — currently host-local only.
 
+## Redis (single VPS, self-hosted)
+
+- Queues live in DB 0, cache in DB 1 (`REDIS_DB` / `REDIS_CACHE_DB`).
+  Cache is rebuildable by design — any `Cache::flush()` or key loss only
+  costs queries, never correctness. Queues are drainable but NOT
+  reconstructible: a lost `grading` job leaves its session `completed`
+  with a null score until the next submit POST re-dispatches it.
+- Keep `maxmemory 256mb`, `maxmemory-policy noeviction` (queues must never
+  drop), `appendonly yes` so a restart doesn't orphan in-flight grading.
+- If Redis is down, the app keeps serving: the `failover` cache falls back
+  to database, and `adminHealth.queue_depth` falls back to the DB `jobs`
+  count. Queue workers crash-loop until Redis returns — `supervisorctl
+  status` shows them `BACKOFF`; no data action needed beyond restoring Redis.
+
+## Queue triage & alert thresholds (`/admin/metrics`)
+
+| Signal | Healthy | Investigate | Act now |
+|---|---|---|---|
+| `queue_depth` (grading+violations+broadcasts+default) | 0 between exams | > 50 for > 5 min (worker slow or down) | > 200 or growing: restart workers, check Redis memory |
+| `failed_jobs` | 0 | > 0 (inspect `queue:failed`, `grading.failed` / `violation.failed` logs) | re-`queue:retry` after fixing the cause |
+| `ungraded_completions` | 0 outside exam windows | > 0 for > 15 min (grading stuck — but submit re-dispatches, so this usually self-heals) | > 20: check `grading` worker + `failed_jobs` |
+
+- `queue:failed` shows the exception per job; `queue:retry all` re-queues.
+- Load gate before any exam day: `./scripts/load-test.sh 100 --seed=100`
+  must report submit-ack p95 < 2s, grading drain < 2 min after the last
+  submit, and zero duplicate active sessions.
+
 ## Deploy checklist
 
 1. Copy `.env.production.example` → `.env`, fill secrets, `key:generate`

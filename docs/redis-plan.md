@@ -91,8 +91,23 @@ Explicitly **not** queued: `saveAnswer` itself (students need instant confirmati
 - No Reverb Redis scaling — a single node doesn't need it.
 - `saveAnswer` not queued — instant ACK beats queue-loss risk at 100 concurrency; burst absorbed by locks + indexes instead.
 
-## 5. Task 0 baseline (recorded 2026-09-10, worktree `feat/redis-queue`)
-- Dep: `predis/predis ^3.6` added (`composer.json`), `Predis\Client()->ping()` → PONG against local Redis 8.0.2
+## 6. Task 7 live gate (2026-09-11, pre-redis baseline on main checkout)
+
+nginx+php-fpm serves the MAIN checkout, so the live gate below measures
+pre-Tasks-0–6 code — the true baseline the Task 0 smoke run failed to
+capture. Re-run post-merge for the comparison.
+
+- First attempt INVALID: wrapper's worker-log dir was missing, so the
+  supervised worker never started → 407 jobs backlogged, grading spot-check
+  failed. Fixed by `mkdir -p` for the log dir (now in `scripts/load-test.sh`).
+- Second run (`scripts/load-test.sh 100 --seed=100`): **all 9 gates PASS** —
+  no 5xx, no 429, submit idempotent, no duplicate sessions, spam terminates,
+  grading 5/5 correct, queues drained in ~1s, chaos minimums met.
+- Latencies (p95): submit-ack 465ms (<2s ✓), answer 540ms (<1s ✓),
+  status 531ms (WARN line 500ms, marginal — first run measured 436ms, so
+  treat 500ms as noise band, not regression), login 1199ms (bcrypt, expected).
+
+## 5. Task 0 baseline (recorded 2026-09-10, worktree `feat/redis-queue`)- Dep: `predis/predis ^3.6` added (`composer.json`), `Predis\Client()->ping()` → PONG against local Redis 8.0.2
   (`maxmemory 0`, `appendonly no`, `maxmemory-policy noeviction` — Task 7 should set `maxmemory 256mb` + `appendonly yes`).
 - Suite: 115 passed (838 assertions) with predis installed — no behavior change.
 - In-process perf: `SubmitLoadTest` 100 simultaneous submits ~0.4–0.6s, query budget respected.

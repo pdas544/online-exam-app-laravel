@@ -79,6 +79,9 @@ php artisan queue:clear redis --queue=default > /dev/null 2>&1 || true
 export APP_KEY="$APP_KEY"  # CLI safety net; fpm workers read the file above
 # Supervised worker: restarts on crash (e.g. a migrate:fresh drop window
 # under a live worker). Pattern-scoped so dev workers are never touched.
+# The log dir is gitignored and may not exist — without it the redirect
+# fails and the worker never starts (silent 400-job backlog).
+mkdir -p "$(dirname "$WORKER_LOG")"
 (
     while true; do
         php artisan queue:work --sleep=1 --tries=1 >> "$WORKER_LOG" 2>&1
