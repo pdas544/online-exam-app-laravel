@@ -33,6 +33,16 @@ if ! curl -sf -o /dev/null http://localhost:8080/up; then
     exit 2
 fi
 
+# /up alone is not proof of Laravel: a stray `reverb:start --port=8080`
+# also answers it. Refuse unless a Laravel-only route responds (this exact
+# false-positive once produced a fully invalid run: every bot 404'd on /login).
+if [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/login)" != "200" ]; then
+    echo "Refusing: :8080 is not serving Laravel (GET /login != 200)." >&2
+    echo "Likely cause: a dev 'reverb:start --port=8080' is squatting on the" >&2
+    echo "load-test port. Stop it (or move REVERB_PORT), then retry." >&2
+    exit 2
+fi
+
 cp "$ROOT/.env" "$BACKUP"
 
 APP_KEY=$(grep ^APP_KEY= "$BACKUP" | cut -d= -f2-)

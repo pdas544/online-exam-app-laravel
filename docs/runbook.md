@@ -23,6 +23,11 @@ scheduler must be started separately (see `codebase-summary` §5).
   this was the root cause of the first 2-browser failure.
 - **Reverb down**: Echo `ERR_CONNECTION_REFUSED` in browser console; same
   symptoms as queue down. Check `:8080` listener.
+- **Port clash on :8080**: `reverb:start --port=8080` and the load-test
+  nginx (`deploy/loadtest/nginx.conf`) claim the same port and are mutually
+  exclusive. A squatting Reverb answers `/up` but 404s everything else —
+  `scripts/load-test.sh` refuses the run when `GET /login != 200`; stop the
+  squatter (or move `REVERB_PORT`) before load-testing.
 - **Scheduler down**: timed-out sessions sit `in_progress` forever. Check
   cron; `schedule:list` shows registered commands.
 
