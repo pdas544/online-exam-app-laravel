@@ -69,9 +69,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/exam/session/{session}/take', [ExamSessionController::class, 'take'])->name('exam.session.take');
         Route::post('/exam/session/{session}/begin', [ExamSessionController::class, 'begin'])->name('exam.session.begin');
         Route::get('/exam/session/{session}/resume', [ExamSessionController::class, 'resume'])->name('exam.session.resume');
-        Route::post('/exam/session/{session}/answer', [ExamSessionController::class, 'saveAnswer'])->name('exam.session.answer');
+        Route::post('/exam/session/{session}/answer', [ExamSessionController::class, 'saveAnswer'])->name('exam.session.answer')->middleware('throttle:exam-answers');
         Route::post('/exam/session/{session}/submit', [ExamSessionController::class, 'submit'])->name('exam.session.submit');
-        Route::post('/exam/session/{session}/violation', [ExamSessionController::class, 'logViolation'])->name('exam.session.violation');
+        Route::post('/exam/session/{session}/violation', [ExamSessionController::class, 'logViolation'])->name('exam.session.violation')->middleware('throttle:exam-answers');
         Route::get('/exam/session/{session}/status', [ExamSessionController::class, 'status'])->name('exam.session.status');
         Route::get('/exam/session/{session}/result', [ExamSessionController::class, 'result'])->name('exam.session.result');
     });

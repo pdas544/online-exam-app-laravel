@@ -39,5 +39,16 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('exam', function ($request) {
             return Limit::perMinute((int) config('rate_limits.exam', 1000))->by($request->ip());
         });
+        // Per-session write throttle so one spamming client can't eat the
+        // shared per-IP exam budget of 100 students behind one NAT.
+        // Limiters resolve through the default cache store — set
+        // CACHE_STORE=failover in production to back them with Redis.
+        RateLimiter::for('exam-answers', function ($request) {
+            $session = $request->route('session');
+            $sessionId = $session instanceof \App\Models\ExamSession ? $session->id : $session;
+
+            return Limit::perMinute((int) config('rate_limits.exam_answers', 60))
+                ->by('session:'.$sessionId.'|'.$request->ip());
+        });
     }
 }

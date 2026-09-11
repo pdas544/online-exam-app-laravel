@@ -8,6 +8,7 @@ use App\Models\Question;
 use App\Models\Subject;
 use App\Models\User;
 use App\Services\ExamManagementService;
+use App\Services\ExamService;
 use App\Services\FileService;
 use DomainException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -41,7 +42,7 @@ class ExamManagementServiceTest extends TestCase
             'status' => 'draft',
             'total_marks' => 0,
         ]);
-        $this->service = new ExamManagementService(new FileService);
+        $this->service = new ExamManagementService(new FileService, new ExamService);
     }
 
     private function makeQuestion(?int $subjectId = null, int $points = 5): Question

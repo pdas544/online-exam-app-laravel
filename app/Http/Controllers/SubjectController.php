@@ -4,15 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreSubjectRequest;
 use App\Models\Subject;
+use App\Services\SubjectService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class SubjectController extends Controller
 {
-    public function __construct()
-    {
-
-    }
+    public function __construct(
+        private SubjectService $subjects,
+    ) {}
 
     public function index(Request $request)
     {
@@ -21,12 +21,12 @@ class SubjectController extends Controller
         $user = Auth::user();
         $query = Subject::query()->with('creator');
 
-        if(!$user->isAdmin()){
+        if (! $user->isAdmin()) {
             $query->forTeacher($user->id);
         }
 
-        //search by subject name
-        if($request->filled('search')){
+        // search by subject name
+        if ($request->filled('search')) {
             $search = $request->input('search');
             $query->where('name', 'like', "%{$search}%");
         }
@@ -54,6 +54,7 @@ class SubjectController extends Controller
             'description' => $validated['description'],
             'created_by' => Auth::id(),
         ]);
+        $this->subjects->invalidateCache();
 
         return redirect()->route('subjects.index')
             ->with('success', 'Subject created successfully.');
@@ -64,8 +65,9 @@ class SubjectController extends Controller
         $this->authorize('view', $subject);
 
         $subject->load(['creator', 'questions', 'exams']);
+
         return view('subjects.show', compact('subject'));
-//        return view('subjects.index', compact('subject'));
+        //        return view('subjects.index', compact('subject'));
     }
 
     public function edit(Subject $subject)
@@ -82,6 +84,7 @@ class SubjectController extends Controller
         $validated = $request->validated();
 
         $subject->update($validated);
+        $this->subjects->invalidateCache();
 
         return redirect()->route('subjects.index')
             ->with('success', 'Subject updated successfully.');
@@ -92,6 +95,7 @@ class SubjectController extends Controller
         $this->authorize('delete', $subject);
 
         $subject->delete();
+        $this->subjects->invalidateCache();
 
         return redirect()->route('subjects.index')
             ->with('success', 'Subject deleted successfully.');

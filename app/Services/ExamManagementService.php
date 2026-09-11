@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\DB;
  */
 class ExamManagementService
 {
-    public function __construct(private FileService $files) {}
+    public function __construct(private FileService $files, private ExamService $papers) {}
 
     /**
      * Teacher-scoped, filterable exam listing.
@@ -73,6 +73,7 @@ class ExamManagementService
         $attributes['instructions_file'] = $this->files->replace($exam->instructions_file, $file);
 
         $exam->update($attributes);
+        $this->papers->invalidateExamCache($exam);
 
         return $exam->fresh();
     }
@@ -91,6 +92,8 @@ class ExamManagementService
             $this->files->delete($exam->instructions_file);
             $exam->delete();
         });
+
+        $this->papers->invalidateExamCache($exam);
     }
 
     /**
@@ -118,6 +121,8 @@ class ExamManagementService
 
             $exam->updateTotalMarks();
         });
+
+        $this->papers->invalidateExamCache($exam);
     }
 
     /**
@@ -137,6 +142,8 @@ class ExamManagementService
 
             $exam->updateTotalMarks();
         });
+
+        $this->papers->invalidateExamCache($exam);
     }
 
     /**
@@ -158,6 +165,8 @@ class ExamManagementService
                 $exam->questions()->updateExistingPivot($item['id'], ['order_index' => $item['order']]);
             }
         });
+
+        $this->papers->invalidateExamCache($exam);
     }
 
     /**
@@ -172,6 +181,8 @@ class ExamManagementService
 
             $exam->updateTotalMarks();
         });
+
+        $this->papers->invalidateExamCache($exam);
     }
 
     /**
@@ -205,6 +216,8 @@ class ExamManagementService
             }
 
             $exam->updateTotalMarks();
+
+            $this->papers->invalidateExamCache($exam);
 
             return count($new);
         });

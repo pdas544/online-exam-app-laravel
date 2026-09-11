@@ -10,6 +10,7 @@ use App\Jobs\LogExamViolation;
 use App\Models\Exam;
 use App\Models\ExamSession;
 use App\Models\StudentAnswer;
+use App\Services\ExamService;
 use App\Services\ExamSessionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,6 +19,7 @@ class ExamSessionController extends Controller
 {
     public function __construct(
         private ExamSessionService $sessions,
+        private ExamService $papers,
     ) {}
 
     /**
@@ -44,13 +46,16 @@ class ExamSessionController extends Controller
     }
 
     /**
-     * Take the exam (main interface)
+     * Take the exam (main interface). The exam paper (title, settings,
+     * ordered questions) is served from cache; answer seeding in start()
+     * deliberately stays uncached so it is always authoritative.
      */
     public function take(ExamSession $session)
     {
         $this->authorize('view', $session);
 
-        $session->load(['exam', 'exam.questions', 'answers' => function ($q) {
+        $session->setRelation('exam', $this->papers->getExamWithQuestions($session->exam));
+        $session->load(['answers' => function ($q) {
             $q->with('question');
         }]);
 
