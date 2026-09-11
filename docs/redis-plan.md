@@ -107,6 +107,24 @@ capture. Re-run post-merge for the comparison.
   status 531ms (WARN line 500ms, marginal — first run measured 436ms, so
   treat 500ms as noise band, not regression), login 1199ms (bcrypt, expected).
 
+## 7. Post-merge gate (2026-09-11, WITH Tasks 0–6 + read_timeout fix)
+
+Two runs were needed — the first exposed a real Task 1 bug, the second proves
+the full path:
+
+- Run 1: grading drained but violations/broadcasts stranded (542 jobs, zero
+  failures). Root cause: `REDIS_READ_TIMEOUT=5s` equalled
+  `REDIS_QUEUE_BLOCK_FOR=5s`, so phpredis aborted the blocking pop on the
+  first empty queue and the multi-queue worker looped there forever
+  (single-queue workers were unaffected, which is why it looked
+  queue-specific). Fixed: default `read_timeout` 60s + invariant test
+  (`RedisQueueConfigTest`) + runbook rule.
+- Run 2: **all 9 gates PASS** — spam auto-terminates through the async
+  violation job, grading 5/5, all four queues drained in ~6s.
+- Latencies (p95): submit-ack 488ms, answer 525ms, status 512ms (same noise
+  band as baseline), login 1240ms. Verdict: Redis path matches baseline
+  latency while adding locks, async violations, and honest queue health.
+
 ## 5. Task 0 baseline (recorded 2026-09-10, worktree `feat/redis-queue`)- Dep: `predis/predis ^3.6` added (`composer.json`), `Predis\Client()->ping()` → PONG against local Redis 8.0.2
   (`maxmemory 0`, `appendonly no`, `maxmemory-policy noeviction` — Task 7 should set `maxmemory 256mb` + `appendonly yes`).
 - Suite: 115 passed (838 assertions) with predis installed — no behavior change.
