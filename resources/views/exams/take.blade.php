@@ -381,4 +381,3 @@
 @push('scripts')
     @vite(['resources/js/exam-taker.js'])
 @endpush
-@endpush

@@ -153,4 +153,17 @@ class ExamFlowTest extends TestCase
             ->post(route('teacher.monitor.force-end', $session))
             ->assertForbidden();
     }
+
+    public function test_take_page_renders_without_blade_errors(): void
+    {
+        // Regression: a stray @endpush once made this page throw
+        // InvalidArgumentException, and no test ever GETed the route.
+        $session = $this->openSession();
+
+        $this->actingAs($this->student)
+            ->get(route('exam.session.take', $session))
+            ->assertOk()
+            ->assertSee($this->exam->title)
+            ->assertSee('Time Remaining', false);
+    }
 }
