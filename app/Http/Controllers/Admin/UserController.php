@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreUserRequest;
 use App\Models\Teacher;
 use App\Models\User;
+use App\Support\QuerySearch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
@@ -27,12 +28,12 @@ class UserController extends Controller
             $query->byRole($request->role);
         }
 
-        // Search by name or email
+        // Search by name or email (case-insensitive on all drivers)
         if ($request->has('search') && $request->search != '') {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
+                QuerySearch::contains($q, 'name', $search);
+                QuerySearch::orContains($q, 'email', $search);
             });
         }
 

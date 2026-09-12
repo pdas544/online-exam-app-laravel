@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreSubjectRequest;
 use App\Models\Subject;
 use App\Services\SubjectService;
+use App\Support\QuerySearch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -25,10 +26,9 @@ class SubjectController extends Controller
             $query->forTeacher($user->id);
         }
 
-        // search by subject name
+        // search by subject name (case-insensitive on all drivers)
         if ($request->filled('search')) {
-            $search = $request->input('search');
-            $query->where('name', 'like', "%{$search}%");
+            QuerySearch::contains($query, 'name', $request->input('search'));
         }
 
         $subjects = $query->latest()->paginate(10)->withQueryString();

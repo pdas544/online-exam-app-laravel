@@ -6,6 +6,7 @@ use App\Data\ExamData;
 use App\Models\Exam;
 use App\Models\Question;
 use App\Models\User;
+use App\Support\QuerySearch;
 use DomainException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
@@ -41,8 +42,8 @@ class ExamManagementService
         if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%");
+                QuerySearch::contains($q, 'title', $search);
+                QuerySearch::orContains($q, 'description', $search);
             });
         }
 

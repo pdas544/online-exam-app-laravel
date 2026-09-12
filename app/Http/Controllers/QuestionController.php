@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreQuestionRequest;
 use App\Models\Question;
 use App\Models\Subject;
+use App\Support\QuerySearch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
@@ -44,9 +45,9 @@ class QuestionController extends Controller
             $query->where('created_by', $user->id);
         }
 
-        // Search by question text
+        // Search by question text (case-insensitive on all drivers)
         if ($request->has('search') && $request->search) {
-            $query->where('question_text', 'like', '%' . $request->search . '%');
+            QuerySearch::contains($query, 'question_text', $request->search);
         }
 
         $questions = $query->latest()->paginate(15)->withQueryString();

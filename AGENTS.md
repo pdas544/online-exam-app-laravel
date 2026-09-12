@@ -7,7 +7,11 @@
 
 ## Database gotcha
 - Prod expectation is `pgsql` (`.env.example`), but `phpunit.xml` forces `sqlite :memory:`. Any raw operator must work on **both**.
-- `SubjectController@index` and `UserController@index` use `ilike` (Postgres-only) — breaks sqlite tests. Use `like` for new search queries.
+- All user-facing substring search MUST be case-insensitive on both drivers: use the shared `App\Support\QuerySearch::contains()` helper (`LOWER(col) LIKE` + bound, lowercased, wildcard-escaped pattern). Never use bare `like` for search (case-sensitive on pgsql) or `ilike` (fatal on sqlite).
+- sqlite `LIKE` is ASCII case-insensitive, so sqlite tests CANNOT reproduce pgsql case-sensitivity bugs — always add a unit test on the generated SQL/bindings alongside behavior tests.
+
+## Input audit checklist (lesson learned: matching field names are not enough)
+- When auditing any view input against its backend logic, verify four layers: (1) names/values match, (2) operator semantics on **both** drivers, (3) behavior matches user expectation (e.g. search = case-insensitive), (4) a test covers the behavior — missing coverage is itself a finding.
 
 ## Auth / authorization
 - Roles live on `users.role` with `User::isAdmin/isTeacher/isStudent()`. No Policies/Gates exist — access is manual `abort(403)` inside controllers plus `teacher` middleware (allows teacher OR admin) on `/teacher/monitor*` only.
