@@ -57,6 +57,7 @@ class ExamTaker {
         this.setupLobbyModal();
         this.hasWarnedHighViolations = false;
         this.setupStatusGuard();
+        this.refreshReviewCount();
 
         if (!this.startLocked) {
             this.startExamFlow();
@@ -343,6 +344,14 @@ class ExamTaker {
             icon.className = 'bi bi-circle palette-unanswered-icon';
             paletteBtn.classList.add('palette-unanswered');
         }
+
+        this.refreshReviewCount();
+    }
+
+    refreshReviewCount() {
+        const marked = document.querySelectorAll('.nav-question.palette-marked').length;
+        const reviewCount = document.getElementById('review-count');
+        if (reviewCount) reviewCount.textContent = marked;
     }
 
     autoSave() {

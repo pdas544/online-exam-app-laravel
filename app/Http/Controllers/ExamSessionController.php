@@ -109,12 +109,17 @@ class ExamSessionController extends Controller
             ->where('question_id', $request->question_id)
             ->firstOrFail();
 
-        $answer->update([
-            'answer' => $request->answer,
-            'is_answered' => $request->answer !== null && $request->answer !== '',
+        // The mark-for-review toggle POSTs no `answer` key: only touch the
+        // saved answer when the key is present, otherwise a toggle wipes it.
+        $updates = [
             'is_marked_for_review' => $request->is_marked_for_review ?? $answer->is_marked_for_review,
             'answered_at' => now(),
-        ]);
+        ];
+        if (array_key_exists('answer', $request->all())) {
+            $updates['answer'] = $request->answer;
+            $updates['is_answered'] = $request->answer !== null && $request->answer !== '';
+        }
+        $answer->update($updates);
 
         // Update session progress
         $session->updateProgress();

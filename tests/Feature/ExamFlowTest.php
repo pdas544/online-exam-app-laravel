@@ -166,4 +166,28 @@ class ExamFlowTest extends TestCase
             ->assertSee($this->exam->title)
             ->assertSee('Time Remaining', false);
     }
+
+    public function test_mark_for_review_preserves_saved_answer(): void
+    {
+        // The mark toggle POSTs no `answer` key: the endpoint must not
+        // wipe the saved answer or its answered state.
+        $session = $this->openSession();
+        $qid = $this->questionIds[0];
+
+        $this->actingAs($this->student)->postJson(
+            route('exam.session.answer', $session),
+            ['question_id' => $qid, 'answer' => ['B']]
+        )->assertOk();
+
+        $this->actingAs($this->student)->postJson(
+            route('exam.session.answer', $session),
+            ['question_id' => $qid, 'is_marked_for_review' => true]
+        )->assertOk();
+
+        $answer = \App\Models\StudentAnswer::where('exam_session_id', $session->id)
+            ->where('question_id', $qid)->firstOrFail();
+        $this->assertTrue((bool) $answer->is_answered);
+        $this->assertEquals(['B'], array_values((array) $answer->answer));
+        $this->assertTrue((bool) $answer->is_marked_for_review);
+    }
 }
