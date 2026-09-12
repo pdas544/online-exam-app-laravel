@@ -2,108 +2,86 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\ExamEnded;
+use App\Events\StudentJoined;
 use App\Http\Requests\LogViolationRequest;
 use App\Http\Requests\SaveAnswerRequest;
+use App\Http\Requests\SyncTimerRequest;
+use App\Jobs\LogExamViolation;
 use App\Models\Exam;
 use App\Models\ExamSession;
 use App\Models\StudentAnswer;
-use App\Models\Question;
-use App\Events\ExamEnded;
-use App\Events\AnswerSaved;
-use App\Events\StudentJoined;
-use App\Events\ViolationDetected;
+use App\Services\ExamService;
+use App\Services\ExamSessionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 class ExamSessionController extends Controller
 {
-    public function __construct()
-    {
-//        $this->middleware('auth');
-    }
+    public function __construct(
+        private ExamSessionService $sessions,
+        private ExamService $papers,
+    ) {}
 
     /**
      * Start an exam for a student
      */
     public function start(Exam $exam)
     {
-        // Check if exam is available
-        if (!$exam->isAvailable()) {
-            return back()->with('error', 'This exam is not available at this time.');
-        }
-
-        // Resume an existing active session if one exists
-        $activeSession = ExamSession::where('exam_id', $exam->id)
-            ->where('student_id', Auth::id())
-            ->whereIn('status', ['scheduled', 'in_progress', 'paused'])
-            ->first();
-
-        if ($activeSession) {
-            return redirect()->route('exam.session.resume', $activeSession);
-        }
-
-        // Enforce max attempts against completed sessions
-        $completedAttempts = ExamSession::where('exam_id', $exam->id)
-            ->where('student_id', Auth::id())
-            ->where('status', 'completed')
-            ->count();
-
-        if ($completedAttempts >= ($exam->max_attempts ?? 1)) {
-            return back()->with('error', 'You have already completed this exam.');
-        }
-
-        // Create new session
-        DB::beginTransaction();
         try {
-            $questions = $exam->questions()->orderBy('order_index')->get();
+            $session = $this->sessions->start($exam, Auth::id());
 
-            $session = ExamSession::create([
-                'exam_id' => $exam->id,
-                'student_id' => Auth::id(),
-                'teacher_id' => $exam->teacher_id,
-                'status' => 'scheduled',
-                'started_at' => null,
-                'total_questions' => $questions->count(),
-                'ip_address' => request()->ip(),
-                'user_agent' => request()->userAgent(),
-            ]);
-
-            // Create answer records for each question
-            foreach ($questions as $question) {
-                StudentAnswer::create([
-                    'exam_session_id' => $session->id,
-                    'question_id' => $question->id,
-                    'exam_id' => $exam->id,
-                    'max_points' => $question->pivot->points_override ?? $question->points,
-                ]);
+            if (! $session->wasRecentlyCreated) {
+                return redirect()->route('exam.session.resume', $session);
             }
-
-            DB::commit();
 
             $session->loadMissing('student');
             broadcast(new StudentJoined($session));
 
             return redirect()->route('exam.session.take', $session);
-
+        } catch (\DomainException $e) {
+            return back()->with('error', 'Could not start exam. Please try again.');
         } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->with('error', 'Failed to start exam: ' . $e->getMessage());
+            return back()->with('error', 'Failed to start exam. Please try again.');
         }
     }
 
     /**
-     * Take the exam (main interface)
+     * Take the exam (main interface). The exam paper (title, settings,
+     * ordered questions) is served from cache; answer seeding in start()
+     * deliberately stays uncached so it is always authoritative.
      */
     public function take(ExamSession $session)
     {
         $this->authorize('view', $session);
 
-        $session->load(['exam', 'exam.questions', 'answers' => function($q) {
+        $session->setRelation('exam', $this->papers->getExamWithQuestions($session->exam));
+        $session->load(['answers' => function ($q) {
             $q->with('question');
         }]);
 
         return view('exams.take', compact('session'));
+    }
+
+    /**
+     * Begin the attempt (lobby proceed): scheduled → in_progress.
+     * Returns server-authoritative time remaining for timer seeding.
+     */
+    public function begin(ExamSession $session)
+    {
+        $this->authorize('view', $session);
+
+        try {
+            $session = $this->sessions->begin($session->fresh());
+        } catch (\DomainException $e) {
+            return response()->json(['error' => 'This exam session can no longer be taken.'], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'status' => $session->status,
+            'time_remaining' => $session->timeRemaining(),
+        ]);
     }
 
     /**
@@ -113,7 +91,7 @@ class ExamSessionController extends Controller
     {
         $this->authorize('view', $session);
 
-        if (!in_array($session->status, ['scheduled', 'in_progress', 'paused'], true)) {
+        if (! in_array($session->status, ['scheduled', 'in_progress', 'paused'], true)) {
             return redirect()->route($this->dashboardRoute())
                 ->with('error', 'This exam session cannot be resumed.');
         }
@@ -132,12 +110,17 @@ class ExamSessionController extends Controller
             ->where('question_id', $request->question_id)
             ->firstOrFail();
 
-        $answer->update([
-            'answer' => $request->answer,
-            'is_answered' => $request->answer !== null && $request->answer !== '',
+        // The mark-for-review toggle POSTs no `answer` key: only touch the
+        // saved answer when the key is present, otherwise a toggle wipes it.
+        $updates = [
             'is_marked_for_review' => $request->is_marked_for_review ?? $answer->is_marked_for_review,
             'answered_at' => now(),
-        ]);
+        ];
+        if (array_key_exists('answer', $request->all())) {
+            $updates['answer'] = $request->answer;
+            $updates['is_answered'] = $request->answer !== null && $request->answer !== '';
+        }
+        $answer->update($updates);
 
         // Update session progress
         $session->updateProgress();
@@ -159,81 +142,44 @@ class ExamSessionController extends Controller
         try {
             $this->authorize('view', $session);
 
-            if ($session->status !== 'in_progress') {
-                return response()->json(['error' => 'Exam already submitted'], 400);
-            }
-
-            DB::beginTransaction();
-
             try {
-                // Calculate time spent in seconds (ensure positive integer)
-                $timeSpent = $session->started_at 
-                    ? abs((int) $session->started_at->diffInSeconds(now(), false))
-                    : 0;
+                $this->sessions->submit($session);
 
-                // Update session first
-                $session->update([
-                    'status' => 'completed',
-                    'submitted_at' => now(),
-                    'time_spent' => $timeSpent,
-                ]);
-
-                // Auto-grade all answers
-                $session->load('answers.question');
-                foreach ($session->answers as $answer) {
-                    if (!$answer->is_answered) {
-                        $answer->update([
-                            'is_correct' => false,
-                            'points_earned' => 0,
-                        ]);
-                        continue;
-                    }
-
-                    $answer->autoGrade();
-                }
-
-                // Calculate score
-                $totalEarned = $session->answers()->sum('points_earned') ?: 0;
-                $totalPossible = $session->answers()->sum('max_points') ?: 1; // Avoid division by zero
-                $score = ($totalEarned / $totalPossible) * 100;
-
-                $session->update([
-                    'score' => round($score, 2),
-                    'passed' => $score >= ($session->exam->passing_marks ?? 40),
-                ]);
-
-                DB::commit();
-
-                $session->loadMissing('student');
                 broadcast(new ExamEnded($session, 'completed'));
 
                 // Return success response
                 if ($request->wantsJson()) {
                     return response()->json([
                         'success' => true,
-                        'redirect' => route('student.dashboard')
+                        'redirect' => route('student.dashboard'),
                     ]);
                 }
 
                 return redirect()->route('student.dashboard')
                     ->with('success', 'Exam submitted successfully!');
 
+            } catch (\DomainException $e) {
+                if ($request->wantsJson()) {
+                    return response()->json(['error' => 'Could not submit exam. Please try again.'], 400);
+                }
+
+                return back()->with('error', 'Could not submit exam. Please try again.');
             } catch (\Exception $e) {
-                DB::rollBack();
-                \Log::error('Exam submission failed: ' . $e->getMessage(), [
+                \Log::error('Exam submission failed: '.$e->getMessage(), [
                     'session_id' => $session->id,
-                    'trace' => $e->getTraceAsString()
+                    'trace' => $e->getTraceAsString(),
                 ]);
 
                 if ($request->wantsJson()) {
-                    return response()->json(['error' => 'Failed to submit exam: ' . $e->getMessage()], 500);
+                    return response()->json(['error' => 'Failed to submit exam. Please try again.'], 500);
                 }
 
-                return back()->with('error', 'Failed to submit exam: ' . $e->getMessage());
+                return back()->with('error', 'Failed to submit exam. Please try again.');
             }
 
         } catch (\Exception $e) {
-            \Log::error('Exam submission authorization failed: ' . $e->getMessage());
+            \Log::error('Exam submission authorization failed: '.$e->getMessage());
+
             return response()->json(['error' => 'Unauthorized'], 403);
         }
     }
@@ -253,45 +199,25 @@ class ExamSessionController extends Controller
     }
 
     /**
-     * Log violation (AJAX endpoint)
+     * Log violation (AJAX endpoint). Dispatch-only: the worker persists the
+     * log, pauses on focus loss, and notifies the teacher. The client learns
+     * terminal outcomes via the follow-up /status check in exam-taker.js.
      */
     public function logViolation(LogViolationRequest $request, ExamSession $session)
     {
         $this->authorize('view', $session);
 
-        $violation = $session->logViolation(
+        LogExamViolation::dispatch(
+            $session->id,
             $request->type,
             $request->description,
             $request->metadata ?? []
         );
 
-        // Pause session on focus-loss type violations
-        $focusLossTypes = ['tab_switch', 'window_blur', 'fullscreen_exit', 'tab_key'];
-        if (in_array($request->type, $focusLossTypes, true) && $session->status === 'in_progress') {
-            $session->update([
-                'status' => 'paused',
-                'last_activity_at' => now(),
-            ]);
-        }
-
-        // Notify teacher via broadcast
-        broadcast(new ViolationDetected($violation))->toOthers();
-
-        // If auto-terminated, return special response
-        if ($session->status === 'terminated') {
-            return response()->json([
-                'terminated' => true,
-                'reason' => 'Multiple violations detected',
-                'redirect' => route($this->dashboardRoute()),
-            ]);
-        }
-
         return response()->json([
-            'success' => true,
-            'violation_count' => $session->violation_count,
-            'warning' => $session->violation_count >= 3 ?
-                'Warning: Further violations will terminate your exam.' : null,
-        ]);
+            'accepted' => true,
+            'status_url' => route('exam.session.status', $session),
+        ], 202);
     }
 
     /**
@@ -301,7 +227,7 @@ class ExamSessionController extends Controller
     {
         $this->authorize('view', $session);
 
-        $timeRemaining = $this->calculateTimeRemaining($session);
+        $timeRemaining = $session->timeRemaining();
 
         return response()->json([
             'status' => $session->status,
@@ -314,21 +240,19 @@ class ExamSessionController extends Controller
         ]);
     }
 
-
     /**
-     * Calculate time remaining
+     * Persist the client's remaining-time heartbeat. Deliberately narrow:
+     * no status transitions happen here, only the clock stamp, so a stale
+     * or replayed heartbeat can never resume/complete a session.
      */
-    private function calculateTimeRemaining(ExamSession $session)
+    public function syncTimer(SyncTimerRequest $request, ExamSession $session)
     {
-        if (!$session->started_at) {
-            return $session->exam->time_limit * 60;
-        }
+        $session->update([
+            'remaining_time' => $request->remaining_time,
+            'last_activity_at' => now(),
+        ]);
 
-        $elapsed = now()->diffInSeconds($session->started_at);
-        $total = $session->exam->time_limit * 60;
-        $remaining = $total - $elapsed;
-
-        return max(0, $remaining);
+        return response()->json(['success' => true]);
     }
 
     /**
@@ -338,9 +262,17 @@ class ExamSessionController extends Controller
     {
         $this->authorize('forceEnd', $session);
 
-        $session->update([
-            'status' => 'terminated',
-            'submitted_at' => now(),
+        try {
+            $this->sessions->forceEnd($session);
+        } catch (\DomainException $e) {
+            return back()->with('error', 'Only an active exam session can be terminated.');
+        }
+
+        \Log::info('Exam session force-ended', [
+            'session_id' => $session->id,
+            'exam_id' => $session->exam_id,
+            'student_id' => $session->student_id,
+            'by_user_id' => Auth::id(),
         ]);
 
         broadcast(new ExamEnded($session, 'terminated_by_teacher'))->toOthers();
@@ -354,18 +286,12 @@ class ExamSessionController extends Controller
      */
     private function dashboardRoute(): string
     {
-        return Auth::user()->isAdmin() ? 'admin.dashboard' : 'student.dashboard';
-    }
+        $user = Auth::user();
 
-    /**
-     * Calculate letter grade from percentage
-     */
-    private function calculateGrade($percentage)
-    {
-        if ($percentage >= 90) return 'A';
-        if ($percentage >= 80) return 'B';
-        if ($percentage >= 70) return 'C';
-        if ($percentage >= 60) return 'D';
-        return 'F';
+        return match (true) {
+            $user->isAdmin() => 'admin.dashboard',
+            $user->isTeacher() => 'teacher.dashboard',
+            default => 'student.dashboard',
+        };
     }
 }

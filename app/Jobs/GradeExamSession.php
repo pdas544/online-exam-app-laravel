@@ -2,8 +2,9 @@
 
 namespace App\Jobs;
 
-use App\Events\ExamEnded;
+use App\Events\GradingCompleted;
 use App\Models\ExamSession;
+use App\Services\GradingService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -12,58 +13,40 @@ class GradeExamSession implements ShouldQueue
 {
     use Queueable;
 
-    public int $timeout = 120;
-    public int $tries = 1;
+    public int $tries = 3;
 
-    public function __construct(public readonly int $sessionId) {}
+    public array $backoff = [10, 30, 60];
 
-    public function handle(): void
+    public function __construct(private int $sessionId)
     {
-        $session = ExamSession::with(['answers.question', 'exam', 'student'])->find($this->sessionId);
+        $this->onQueue('grading');
+    }
 
-        if (!$session || $session->status !== 'completed') {
+    public function handle(GradingService $grading): void
+    {
+        $session = ExamSession::find($this->sessionId);
+
+        if (! $session || $session->status !== 'completed') {
             return;
         }
 
-        // Skip re-grading if score already set
-        if ($session->score !== null) {
-            return;
-        }
+        $grading->gradeSession($session);
+        $score = $grading->calculateScore($session);
 
-        foreach ($session->answers as $answer) {
-            if (!$answer->is_answered) {
-                $answer->update([
-                    'is_correct' => false,
-                    'points_earned' => 0,
-                ]);
-                continue;
-            }
-
-            $answer->autoGrade();
-        }
-
-        // Reload to get fresh sum after grading
-        $totalEarned = $session->answers()->sum('points_earned') ?: 0;
-        $totalPossible = $session->answers()->sum('max_points') ?: 1;
-        $score = ($totalEarned / $totalPossible) * 100;
+        $percentage = round($score['percentage'], 2);
+        $passed = $score['percentage'] >= ($session->exam->passing_marks ?? 40);
 
         $session->update([
-            'score' => round($score, 2),
-            'passed' => $score >= ($session->exam->passing_marks ?? 40),
+            'score' => $percentage,
+            'passed' => $passed,
         ]);
 
-        broadcast(new ExamEnded($session->fresh()->load('student'), 'completed'));
-
-        Log::info('Exam graded', [
-            'session_id' => $session->id,
-            'score' => round($score, 2),
-            'student_id' => $session->student_id,
-        ]);
+        broadcast(new GradingCompleted($session, $percentage, $passed))->toOthers();
     }
 
     public function failed(\Throwable $exception): void
     {
-        Log::error('GradeExamSession job failed', [
+        Log::error('grading.failed', [
             'session_id' => $this->sessionId,
             'error' => $exception->getMessage(),
         ]);

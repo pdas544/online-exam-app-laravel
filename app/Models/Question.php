@@ -5,7 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
+/**
+ * @property-read Subject|null $subject
+ * @property-read User|null $creator
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, Exam> $exams
+ */
 class Question extends Model
 {
     use HasFactory, SoftDeletes;
@@ -29,17 +36,17 @@ class Question extends Model
     ];
 
     // Relationships
-    public function subject()
+    public function subject(): BelongsTo
     {
         return $this->belongsTo(Subject::class);
     }
 
-    public function creator()
+    public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function exams()
+    public function exams(): BelongsToMany
     {
         return $this->belongsToMany(Exam::class, 'exam_questions')
             ->withPivot('order_index', 'points_override')

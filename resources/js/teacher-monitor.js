@@ -12,7 +12,7 @@ class TeacherMonitor {
     }
 
     setupWebSocket() {
-        window.Echo.channel(`teacher.${this.config.teacherId}`)
+        window.Echo.private(`teacher.${this.config.teacherId}`)
             .listen('.exam.started', (e) => {
                 this.addStudent(e);
             })

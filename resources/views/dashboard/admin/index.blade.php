@@ -50,5 +50,45 @@
         </div>
     </div>
 
+    <div class="row g-2 g-md-3 align-items-stretch mb-3">
+        <div class="col-12 col-md-4 d-flex">
+            <div class="card border-0 shadow-sm w-100 h-100">
+                <div class="card-body p-3 p-md-4">
+                    <p class="text-muted text-uppercase small fw-semibold mb-2">Sessions by Status</p>
+                    @forelse(($health['sessions_by_status'] ?? []) as $status => $count)
+                        <span class="badge bg-secondary me-1 mb-1">{{ $status }}: {{ $count }}</span>
+                    @empty
+                        <p class="text-muted mb-0">No sessions yet.</p>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-4 d-flex">
+            <div class="card border-0 shadow-sm w-100 h-100">
+                <div class="card-body p-3 p-md-4">
+                    <p class="text-muted text-uppercase small fw-semibold mb-2">Queue Health</p>
+                    <h2 class="mb-1">{{ $health['queue_depth'] ?? 0 }}</h2>
+                    <p class="mb-1 {{ ($health['failed_jobs'] ?? 0) > 0 ? 'text-danger fw-semibold' : 'text-muted' }}">
+                        Failed jobs: {{ $health['failed_jobs'] ?? 0 }}
+                    </p>
+                    <p class="text-muted mb-0">Pending + failed background jobs</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-md-4 d-flex">
+            <div class="card border-0 shadow-sm w-100 h-100">
+                <div class="card-body p-3 p-md-4">
+                    <p class="text-muted text-uppercase small fw-semibold mb-2">Proctoring (last hour)</p>
+                    <h2 class="mb-1">{{ $health['violations_last_hour'] ?? 0 }}</h2>
+                    <p class="{{ ($health['ungraded_completions'] ?? 0) > 0 ? 'text-warning fw-semibold' : 'text-muted' }} mb-0">
+                        Ungraded completions: {{ $health['ungraded_completions'] ?? 0 }}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
 @endsection

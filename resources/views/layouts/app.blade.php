@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
 </head>
 <body>
+<a class="visually-hidden-focusable" href="#main-content">Skip to main content</a>
 <nav class="navbar navbar-expand-md bg-primary" data-bs-theme="dark">
     <div class="container-fluid ">
         <a class="navbar-brand" href="{{ route('home') }}">Exam System</a>
@@ -20,7 +21,7 @@
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto">
                 <li class="nav-item">
-                    <a class="nav-link active" aria-current="page" href="#">Home</a>
+                    <a class="nav-link active" aria-current="page" href="{{ route('home') }}">Home</a>
                 </li>
                 @auth
                     <li class="nav-item dropdown">
@@ -42,8 +43,8 @@
                                 <li><hr class="dropdown-divider"></li>
                             @else
                                 <li><a class="dropdown-item" href="{{ route('student.dashboard') }}">Student Dashboard</a></li>
-                                <li><a class="dropdown-item" href="">Available Exams</a></li>
-                                <li><a class="dropdown-item" href="">My Results</a></li>
+                                <li><a class="dropdown-item" href="{{ route('student.dashboard') }}#available-exams">Available Exams</a></li>
+                                <li><a class="dropdown-item" href="{{ route('student.results.index') }}">My Results</a></li>
                                 <li><hr class="dropdown-divider"></li>
                             @endif
                             <li>
@@ -69,7 +70,7 @@
     </div>
 </nav>
 
-<main class="p-2">
+<main class="p-2" id="main-content">
 
     @yield('content')
 

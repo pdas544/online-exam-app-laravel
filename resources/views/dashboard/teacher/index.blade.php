@@ -68,7 +68,7 @@
                                                         <i class="bi bi-list-check"></i>
                                                     </a>
                                                     @if($exam['status'] == 'available')
-                                                        <a href="{{ route('monitor.exam', $exam['id']) }}" class="btn btn-outline-success" title="Monitor Live">
+                                                        <a href="{{ route('teacher.monitor.exam', $exam['id']) }}" class="btn btn-outline-success" title="Monitor Live">
                                                             <i class="bi bi-camera-video"></i>
                                                         </a>
                                                     @endif
@@ -90,6 +90,46 @@
                         @endif
                     </div>
                 </div>
+
+                <!-- Recently Concluded Exams -->
+                @if(count($recentExams ?? []) > 0)
+                    <div class="card border-0 shadow-sm mb-4" id="recent-exams">
+                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">
+                                <i class="bi bi-clock-history me-2 text-secondary"></i>Recently Concluded
+                            </h5>
+                            <span class="badge text-bg-light">{{ count($recentExams) }}</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                @foreach($recentExams as $exam)
+                                    <div class="col-md-6 mb-3">
+                                        <div class="card h-100 border">
+                                            <div class="card-body">
+                                                <h6 class="mb-2">{{ $exam['title'] }}</h6>
+                                                <p class="small text-muted mb-2">
+                                                    <i class="bi bi-book me-1"></i>{{ $exam['subject'] }}
+                                                </p>
+                                                <small class="text-muted d-block mb-3">
+                                                    <i class="bi bi-calendar me-1"></i>
+                                                    Closed: {{ $exam['available_to'] }}
+                                                </small>
+                                                <div class="d-flex gap-2">
+                                                    <a href="{{ route('exams.show', $exam['id']) }}" class="btn btn-outline-info btn-sm flex-grow-1">
+                                                        <i class="bi bi-eye me-1"></i>Details
+                                                    </a>
+                                                    <a href="{{ route('teacher.monitor.exam', $exam['id']) }}" class="btn btn-outline-success btn-sm flex-grow-1">
+                                                        <i class="bi bi-camera-video me-1"></i>Results
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                @endif
             </div>
 
             <div class="col-lg-3">

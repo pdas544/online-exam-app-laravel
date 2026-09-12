@@ -47,9 +47,10 @@
                             </div>
                             <div class="col-md-3">
                                 <div class="mb-3">
-                                    <label for="academic_year" class="form-label">Academic Year</label>
-                                    <input type="text" name="academic_year" id="academic_year" class="form-control"
-                                           placeholder="Enter year" value="{{ old('academic_year') }}">
+                                    <label for="academic_year" class="form-label">Academic Year *</label>
+                                    <input type="number" name="academic_year" id="academic_year" class="form-control @error('academic_year') is-invalid @enderror"
+                                           placeholder="e.g., {{ date('Y') }}" value="{{ old('academic_year') }}"
+                                           min="2000" max="{{ date('Y') }}" required>
                                     @error('academic_year')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
@@ -57,9 +58,13 @@
                             </div>
                             <div class="col-md-2">
                                 <div class="mb-3">
-                                    <label for="semester" class="form-label">Semester</label>
-                                    <input type="text" id="semester" name="semester" class="form-control"
-                                           placeholder="Enter semester" value="{{ old('semester') }}">
+                                    <label for="semester" class="form-label">Semester *</label>
+                                    <select id="semester" name="semester" class="form-select @error('semester') is-invalid @enderror" required>
+                                        <option value="">Select semester</option>
+                                        @for($i = 1; $i <= 8; $i++)
+                                            <option value="{{ $i }}" {{ old('semester') == $i ? 'selected' : '' }}>{{ $i }}</option>
+                                        @endfor
+                                    </select>
                                     @error('semester')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
@@ -210,6 +215,14 @@
                                             <span class="badge bg-success">Published</span> - Visible to students (if within availability window)
                                         </label>
                                     </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="status"
+                                               id="status_archived" value="archived"
+                                            {{ old('status') == 'archived' ? 'checked' : '' }}>
+                                        <label class="form-check-label" for="status_archived">
+                                            <span class="badge bg-danger">Archived</span> - Hidden from students
+                                        </label>
+                                    </div>
                                 </div>
                                 @error('status')
                                 <div class="text-danger small mt-1">{{ $message }}</div>
@@ -228,7 +241,10 @@
                         </div>
 
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                            <button type="reset" class="btn btn-outline-secondary me-2">
+                            <a href="{{ route('exams.index') }}" class="btn btn-outline-secondary me-2">
+                                <i class="fas fa-times"></i> Cancel
+                            </a>
+                            <button type="reset" class="btn btn-outline-secondary me-2" onclick="return confirm('Reset all entered data?')">
                                 <i class="fas fa-redo"></i> Reset
                             </button>
                             <button type="submit" class="btn btn-primary">

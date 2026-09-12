@@ -15,7 +15,7 @@ class LogViolationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'type' => 'required|string',
+            'type' => 'required|string|in:tab_switch,window_blur,copy_attempt,paste_attempt,fullscreen_exit,multiple_ips,time_manipulation,suspicious_activity,tab_key,new_tab_attempt,page_navigation,window_resize,window_minimize',
             'description' => 'required|string',
             'metadata' => 'nullable|array',
         ];

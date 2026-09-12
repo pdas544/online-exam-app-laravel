@@ -1,0 +1,22 @@
+# Local prod-like web stack. Rendered by install.sh — do NOT edit the
+# rendered files in /etc; edit this template instead.
+# Placeholders: {{APP_PATH}} (repo root), {{FPM_ADDR}} (fpm pool listen).
+server {
+    listen 8080;
+    server_name localhost;
+    root {{APP_PATH}}/public;
+    index index.php;
+
+    # Rehearsals and load tests share :8080 and are mutually exclusive:
+    # stop this site before ./scripts/load-test.sh and vice versa.
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        fastcgi_pass {{FPM_ADDR}};
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+}

@@ -72,9 +72,10 @@
                             </div>
                             <div class="col-md-3">
                                 <div class="mb-3">
-                                    <label for="academic_year" class="form-label">Academic Year</label>
-                                    <input type="text" name="academic_year" id="academic_year" class="form-control @error('academic_year') is-invalid @enderror"
-                                           value="{{ old('academic_year', $exam->academic_year) }}">
+                                    <label for="academic_year" class="form-label">Academic Year *</label>
+                                    <input type="number" name="academic_year" id="academic_year" class="form-control @error('academic_year') is-invalid @enderror"
+                                           value="{{ old('academic_year', $exam->academic_year) }}"
+                                           min="2000" max="{{ date('Y') }}" required>
                                     @error('academic_year')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
@@ -82,9 +83,13 @@
                             </div>
                             <div class="col-md-2">
                                 <div class="mb-3">
-                                    <label for="semester" class="form-label">Semester</label>
-                                    <input type="text" id="semester" name="semester" class="form-control @error('semester') is-invalid @enderror"
-                                           value="{{ old('semester', $exam->semester) }}">
+                                    <label for="semester" class="form-label">Semester *</label>
+                                    <select id="semester" name="semester" class="form-select @error('semester') is-invalid @enderror" required>
+                                        <option value="">Select semester</option>
+                                        @for($i = 1; $i <= 8; $i++)
+                                            <option value="{{ $i }}" {{ old('semester', $exam->semester) == $i ? 'selected' : '' }}>{{ $i }}</option>
+                                        @endfor
+                                    </select>
                                     @error('semester')
                                     <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
@@ -121,7 +126,7 @@
                             @if($exam->instructions_file)
                                 <div class="mb-2">
                                     <small class="text-muted">Current file:</small>
-                                    <a href="{{ asset('storage/' . $exam->instructions_file) }}" target="_blank" class="d-block">
+                                    <a href="{{ route('exams.instructions', $exam) }}" target="_blank" class="d-block">
                                         <i class="bi bi-file-earmark"></i> {{ basename($exam->instructions_file) }}
                                     </a>
                                 </div>

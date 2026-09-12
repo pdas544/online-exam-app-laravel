@@ -4,7 +4,17 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property-read Exam|null $exam
+ * @property-read User|null $student
+ * @property-read User|null $teacher
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, StudentAnswer> $answers
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, ViolationLog> $violations
+ * @property int|null $answered_answers_count Set by withCount alias.
+ */
 class ExamSession extends Model
 {
     use HasFactory;
@@ -16,6 +26,8 @@ class ExamSession extends Model
         'status',
         'started_at',
         'submitted_at',
+        'paused_at',
+        'grading_dispatched_at',
         'time_spent',
         'remaining_time',
         'current_question_index',
@@ -33,6 +45,8 @@ class ExamSession extends Model
     protected $casts = [
         'started_at' => 'datetime',
         'submitted_at' => 'datetime',
+        'paused_at' => 'datetime',
+        'grading_dispatched_at' => 'datetime',
         'last_activity_at' => 'datetime',
         'answered_questions' => 'array',
         'time_spent' => 'integer',
@@ -44,27 +58,27 @@ class ExamSession extends Model
     ];
 
     // Relationships
-    public function exam()
+    public function exam(): BelongsTo
     {
         return $this->belongsTo(Exam::class);
     }
 
-    public function student()
+    public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_id');
     }
 
-    public function teacher()
+    public function teacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'teacher_id');
     }
 
-    public function answers()
+    public function answers(): HasMany
     {
         return $this->hasMany(StudentAnswer::class);
     }
 
-    public function violations()
+    public function violations(): HasMany
     {
         return $this->hasMany(ViolationLog::class);
     }
@@ -98,12 +112,14 @@ class ExamSession extends Model
 
     public function timeRemaining(): int
     {
-        if (!$this->exam || !$this->started_at) {
+        if (! $this->exam || ! $this->started_at) {
             return 0;
         }
 
         $totalSeconds = $this->exam->time_limit * 60;
-        $elapsedSeconds = now()->diffInSeconds($this->started_at);
+        // Carbon 3 returns signed diffs by default — force absolute elapsed.
+        $elapsedSeconds = (int) $this->started_at->diffInSeconds(now(), true);
+
         return max(0, $totalSeconds - $elapsedSeconds);
     }
 
@@ -120,7 +136,7 @@ class ExamSession extends Model
 
     public function logViolation(string $type, string $description, array $metadata = []): ViolationLog
     {
-        $violation = $this->violations()->create([
+        $violation = new ViolationLog([
             'student_id' => $this->student_id,
             'exam_id' => $this->exam_id,
             'violation_type' => $type,
@@ -128,6 +144,7 @@ class ExamSession extends Model
             'metadata' => $metadata,
             'severity' => $this->calculateSeverity($type),
         ]);
+        $this->violations()->save($violation);
 
         $this->increment('violation_count');
 
@@ -143,11 +160,11 @@ class ExamSession extends Model
 
     private function calculateSeverity(string $type): int
     {
-        return match($type) {
-            'tab_switch', 'window_blur' => 1,
-            'fullscreen_exit' => 2,
+        return match ($type) {
+            'tab_switch', 'window_blur', 'tab_key' => 1,
+            'fullscreen_exit', 'new_tab_attempt', 'window_resize' => 2,
             'copy_attempt', 'paste_attempt' => 3,
-            'multiple_ips', 'time_manipulation' => 4,
+            'page_navigation', 'window_minimize', 'multiple_ips', 'time_manipulation' => 4,
             'suspicious_activity' => 5,
             default => 1,
         };

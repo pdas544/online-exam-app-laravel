@@ -23,7 +23,7 @@
 
         <div class="card border-0 shadow-sm">
             <div class="card-body p-0">
-                @if($results->count() > 0)
+                @if(count($results) > 0)
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
                             <thead class="table-light">
@@ -38,7 +38,13 @@
                             @foreach($results as $result)
                                 <tr>
                                     <td>{{ $result['exam_name'] }}</td>
-                                    <td>{{ rtrim(rtrim(number_format($result['marks_secured'], 2, '.', ''), '0'), '.') }}/{{ rtrim(rtrim(number_format($result['total_marks'], 2, '.', ''), '0'), '.') }}</td>
+                                    <td>
+                                        @if(! empty($result['grading_pending']))
+                                            <span class="badge text-bg-warning">Grading…</span>
+                                        @else
+                                            {{ rtrim(rtrim(number_format($result['marks_secured'], 2, '.', ''), '0'), '.') }}/{{ rtrim(rtrim(number_format($result['total_marks'], 2, '.', ''), '0'), '.') }}
+                                        @endif
+                                    </td>
                                     <td>{{ $result['submitted_at'] ?? '-' }}</td>
                                     <td class="text-end">
                                         <a href="{{ route('student.results.show', $result['session_id']) }}" class="btn btn-outline-primary btn-sm">

@@ -3,8 +3,8 @@
 namespace App\Events;
 
 use App\Models\ExamSession;
-use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
+use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
@@ -13,8 +13,12 @@ class TeacherWarning implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
+    public $broadcastQueue = 'broadcasts';
+
     public int $sessionId;
+
     public int $studentId;
+
     public string $message;
 
     public function __construct(ExamSession $session, string $message)
@@ -26,7 +30,7 @@ class TeacherWarning implements ShouldBroadcast
 
     public function broadcastOn()
     {
-        return [new Channel("student.{$this->studentId}")];
+        return [new PrivateChannel("student.{$this->studentId}")];
     }
 
     public function broadcastAs()

@@ -1,0 +1,57 @@
+name: ci
+
+on:
+  push:
+    branches: [main, agent-edits]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: dom, curl, libxml, mbstring, zip, pcov
+          coverage: pcov
+
+      - name: Install PHP dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Migrate (sqlite)
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          php artisan migrate --force
+
+      - name: Run tests
+        run: php artisan test
+
+      - name: Coverage (informational — no gate until pcov verified)
+        continue-on-error: true
+        run: php artisan test --coverage --coverage-include='app/Services/*'
+
+      - name: Pint (changed modules only — legacy files predate the gate)
+        run: ./vendor/bin/pint --test app/Services app/Data app/Console app/Events app/Policies app/Http/Requests app/Models tests routes/channels.php routes/console.php database/migrations
+
+      - name: PHPStan level 5
+        run: ./vendor/bin/phpstan analyse --no-progress
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Build assets
+        run: |
+          npm ci
+          npm run build

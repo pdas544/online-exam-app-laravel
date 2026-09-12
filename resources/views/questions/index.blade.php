@@ -21,7 +21,11 @@
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
+                    @if(auth()->user()->isAdmin())
                     <li class="breadcrumb-item"><a href="{{ route('admin.dashboard') }}">Admin Dashboard</a></li>
+                    @elseif(auth()->user()->isTeacher())
+                    <li class="breadcrumb-item"><a href="{{ route('teacher.dashboard') }}">Teacher Dashboard</a></li>
+                    @endif
                     <li class="breadcrumb-item active">Questions</li>
                 </ol>
             </nav>
@@ -60,12 +64,12 @@
                         <div class="col-md-4">
                             <select name="question_type" class="form-select" onchange="this.form.submit()">
                                 <option value="">All Types</option>
-                                <option value="multiple_choice_single"
-                                    {{ request('question_type') == 'multiple_choice_single' ? 'selected' : '' }}>
+                                <option value="mcq_single"
+                                    {{ request('question_type') == 'mcq_single' ? 'selected' : '' }}>
                                     Multiple Choice (Single)
                                 </option>
-                                <option value="multiple_choice_multiple"
-                                    {{ request('question_type') == 'multiple_choice_multiple' ? 'selected' : '' }}>
+                                <option value="mcq_multiple"
+                                    {{ request('question_type') == 'mcq_multiple' ? 'selected' : '' }}>
                                     Multiple Choice (Multiple)
                                 </option>
                                 <option value="true_false"
@@ -123,8 +127,8 @@
                             <td>
                                 @php
                                     $typeColors = [
-                                        'multiple_choice_single' => 'primary',
-                                        'multiple_choice_multiple' => 'info',
+                                        'mcq_single' => 'primary',
+                                        'mcq_multiple' => 'info',
                                         'true_false' => 'success',
                                         'fill_blank' => 'warning'
                                     ];

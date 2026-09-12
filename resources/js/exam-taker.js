@@ -26,7 +26,9 @@ class ExamTaker {
         this.remainingSeconds = null;
         this.lastTimerSyncAt = 0;
 
-        console.log('Total questions found:', this.totalQuestions);
+        if (this.debug) {
+            console.log('Total questions found:', this.totalQuestions);
+        }
 
         if (this.totalQuestions === 0) {
             console.error('No questions found! Check if .question-card elements exist');
@@ -36,20 +38,26 @@ class ExamTaker {
     }
 
     init() {
-        console.log('%c📝 Exam Taker Initialized', 'color: purple; font-size: 14px; font-weight: bold');
-        console.log('Session ID:', this.sessionId);
-        console.log('Exam ID:', this.examId);
-        console.log('Total Questions:', this.totalQuestions);
-        console.log('Auto-save Interval:', this.config.autoSaveInterval, 'seconds');
-        console.log('----------------------------------------');
+        if (this.debug) {
+            console.log('%c📝 Exam Taker Initialized', 'color: purple; font-size: 14px; font-weight: bold');
+            console.log('Session ID:', this.sessionId);
+            console.log('Exam ID:', this.examId);
+            console.log('Total Questions:', this.totalQuestions);
+            console.log('Auto-save Interval:', this.config.autoSaveInterval, 'seconds');
+            console.log('----------------------------------------');
+        }
 
         this.checkElements();
         this.setupEventListeners();
         this.setupManualSave(); // Add this
         this.setupPauseModal();
+        this.setupSubmitModal();
         this.setupWebSocket();
         this.setupBeforeUnload(); // Add this
         this.setupLobbyModal();
+        this.hasWarnedHighViolations = false;
+        this.setupStatusGuard();
+        this.refreshReviewCount();
 
         if (!this.startLocked) {
             this.startExamFlow();
@@ -140,11 +148,11 @@ class ExamTaker {
         console.log('Event listeners setup complete');
     }
 
-    showQuestion(index) {
-        console.log(`showQuestion called with index: ${index}`);
-
+    showQuestion(index, { focus = true } = {}) {
         if (index < 0 || index >= this.totalQuestions) {
-            console.warn(`Invalid index: ${index}, total questions: ${this.totalQuestions}`);
+            if (this.debug) {
+                console.warn(`Invalid index: ${index}, total questions: ${this.totalQuestions}`);
+            }
             return;
         }
 
@@ -158,7 +166,14 @@ class ExamTaker {
         if (selectedCard) {
             selectedCard.classList.remove('d-none');
             this.currentQuestionIndex = index;
-            console.log(`Showing question ${index + 1}`);
+            if (focus) {
+                const heading = selectedCard.querySelector('h5');
+                if (heading) {
+                    heading.setAttribute('tabindex', '-1');
+                    heading.focus({ preventScroll: false });
+                }
+                selectedCard.scrollIntoView({ block: 'start' });
+            }
         } else {
             console.error(`Question card with data-index="${index}" not found`);
         }
@@ -183,19 +198,15 @@ class ExamTaker {
         if (nextBtn) {
             nextBtn.disabled = index === this.totalQuestions - 1;
         }
-
-        console.log(`🔍 Navigated to question ${index + 1}`);
     }
 
     previousQuestion() {
-        console.log(`previousQuestion called, current index: ${this.currentQuestionIndex}`);
         if (this.currentQuestionIndex > 0) {
             this.showQuestion(this.currentQuestionIndex - 1);
         }
     }
 
     nextQuestion() {
-        console.log(`nextQuestion called, current index: ${this.currentQuestionIndex}`);
         if (this.currentQuestionIndex < this.totalQuestions - 1) {
             this.showQuestion(this.currentQuestionIndex + 1);
         }
@@ -231,7 +242,7 @@ class ExamTaker {
             _token: this.config.csrf
         };
 
-        fetch(`/exam/session/${this.sessionId}/answer`, {
+        return fetch(`/exam/session/${this.sessionId}/answer`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -315,27 +326,32 @@ class ExamTaker {
             questionCard.dataset.answered = isAnswered ? 'true' : 'false';
         }
 
-        // Update icon based on current status
+        // Update icon based on current status.
+        // Marked wins over answered; unanswered-unmarked paints red.
         const currentIsAnswered = questionCard ? questionCard.dataset.answered === 'true' : false;
         const currentIsMarked = isMarked !== null ? isMarked :
-            (paletteBtn.querySelector('.bi-bookmark-fill, .bi-bookmark-check-fill') !== null);
+            (paletteBtn.querySelector('.bi-bookmark-fill') !== null);
 
-        if (currentIsAnswered && currentIsMarked) {
-            icon.className = 'bi bi-bookmark-check-fill';
-            paletteBtn.classList.add('list-group-item-warning');
-            paletteBtn.classList.remove('list-group-item-success');
+        paletteBtn.classList.remove('list-group-item-success', 'palette-marked', 'palette-unanswered');
+
+        if (currentIsMarked) {
+            icon.className = 'bi bi-bookmark-fill palette-marked-icon';
+            paletteBtn.classList.add('palette-marked');
         } else if (currentIsAnswered) {
             icon.className = 'bi bi-check-circle-fill text-success';
             paletteBtn.classList.add('list-group-item-success');
-            paletteBtn.classList.remove('list-group-item-warning');
-        } else if (currentIsMarked) {
-            icon.className = 'bi bi-bookmark-fill text-warning';
-            paletteBtn.classList.add('list-group-item-warning');
-            paletteBtn.classList.remove('list-group-item-success');
         } else {
-            icon.className = 'bi bi-circle text-secondary';
-            paletteBtn.classList.remove('list-group-item-success', 'list-group-item-warning');
+            icon.className = 'bi bi-circle palette-unanswered-icon';
+            paletteBtn.classList.add('palette-unanswered');
         }
+
+        this.refreshReviewCount();
+    }
+
+    refreshReviewCount() {
+        const marked = document.querySelectorAll('.nav-question.palette-marked').length;
+        const reviewCount = document.getElementById('review-count');
+        if (reviewCount) reviewCount.textContent = marked;
     }
 
     autoSave() {
@@ -378,6 +394,58 @@ class ExamTaker {
                 this.resumeExam();
             });
         }
+    }
+
+    setupSubmitModal() {
+        const confirmBtn = document.getElementById('confirm-submit-btn');
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', () => {
+                const modalEl = document.getElementById('examSubmitModal');
+                if (modalEl && window.bootstrap) {
+                    window.bootstrap.Modal.getInstance(modalEl)?.hide();
+                }
+                this.submitExam({ skipConfirm: true });
+            });
+        }
+    }
+
+    showSubmitModal() {
+        // Answered tallies every answered card (including marked ones);
+        // marked tallies flags; unanswered is the remainder.
+        let answered = 0;
+        document.querySelectorAll('.question-card').forEach(card => {
+            if (card.dataset.answered === 'true') answered++;
+        });
+        const marked = document.querySelectorAll('.nav-question.palette-marked').length;
+        const total = document.querySelectorAll('.nav-question').length;
+
+        document.getElementById('submit-answered-count').textContent = answered;
+        document.getElementById('submit-marked-count').textContent = marked;
+        document.getElementById('submit-unanswered-count').textContent = total - answered;
+
+        const modalEl = document.getElementById('examSubmitModal');
+        if (modalEl && window.bootstrap) {
+            new window.bootstrap.Modal(modalEl, { backdrop: 'static', keyboard: false }).show();
+        }
+    }
+
+    /**
+     * Push the currently visible card's selections, awaiting every save so
+     * the submit that follows grades exactly what the student sees.
+     */
+    async flushUnsavedAnswers() {
+        const currentCard = document.querySelector('.question-card:not(.d-none)');
+        if (!currentCard) return;
+
+        const pending = [];
+        currentCard.querySelectorAll('input, textarea').forEach(input => {
+            const isChoice = input.type === 'radio' || input.type === 'checkbox';
+            if (isChoice ? input.checked : !!input.value) {
+                pending.push(this.saveAnswer(input));
+            }
+        });
+
+        await Promise.all(pending);
     }
 
     setupLobbyModal() {
@@ -452,7 +520,7 @@ class ExamTaker {
             return true;
         } catch (error) {
             console.error('Error beginning exam session:', error);
-            alert(error.message || 'Unable to start exam right now. Please try again.');
+            this.showWarning(error.message || 'Unable to start exam right now. Please try again.');
             return false;
         }
     }
@@ -658,10 +726,19 @@ class ExamTaker {
                 }
             })
             .then(data => {
-                console.log('Violation log response:', data);
+                if (this.debug) {
+                    console.log('Violation log response:', data);
+                }
+                // 202 accepted: the worker persists the violation. Terminal
+                // outcomes (auto-terminate) land seconds later — do one
+                // follow-up status check instead of trusting a stale reply.
+                if (data.accepted) {
+                    setTimeout(() => this.checkTerminalStatus(), 3000);
+                    return;
+                }
                 if (data.terminated) {
-                    alert('Exam terminated due to multiple violations.');
-                    window.location.href = data.redirect || '/dashboard';
+                    this.showWarning('Exam terminated due to multiple violations.');
+                    window.location.href = data.redirect || '/student/dashboard';
                 } else if (data.warning) {
                     this.showWarning(data.warning);
                 }
@@ -669,6 +746,46 @@ class ExamTaker {
             .catch(error => {
                 console.error('Error logging violation:', error);
             });
+    }
+
+    checkTerminalStatus() {
+        if (this.isSubmitting || this.allowUnload) return Promise.resolve();
+
+        return fetch(`/exam/session/${this.sessionId}/status`, {
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': this.config.csrf,
+            },
+        })
+            .then(response => {
+                if (!response.ok) return null;
+                return response.json();
+            })
+            .then(data => {
+                if (!data) return;
+                if (data.status === 'terminated' || data.status === 'expired') {
+                    this.showWarning('Your exam session has ended.');
+                    window.location.href = '/student/dashboard?ended=1';
+                } else if (!this.hasWarnedHighViolations && (data.violation_count || 0) >= 3) {
+                    this.hasWarnedHighViolations = true;
+                    this.showWarning('Warning: Further violations will terminate your exam.');
+                }
+            })
+            .catch(error => {
+                if (this.debug) {
+                    console.warn('Terminal status check failed:', error);
+                }
+            });
+    }
+
+    setupStatusGuard() {
+        // Safety net for async outcomes the violation reply can't carry:
+        // auto-termination and teacher force-end (both invisible without
+        // Reverb). Cheap: one /status GET every 20s while the exam is live.
+        this.statusGuardInterval = setInterval(() => {
+            if (this.paused || this.isSubmitting || this.allowUnload) return;
+            this.checkTerminalStatus();
+        }, 20000);
     }
 
     reenableFullscreen() {
@@ -686,7 +803,7 @@ class ExamTaker {
         }
 
         // Listen for exam start approval on exam channel
-        window.Echo.channel(`exam.${this.examId}`)
+        window.Echo.private(`exam.${this.examId}`)
             .listen('.exam.start.allowed', (e) => {
                 if (String(e.sessionId) !== String(this.sessionId)) return;
                 console.log('Exam start approved:', e);
@@ -695,7 +812,7 @@ class ExamTaker {
 
         // Listen for student-specific commands
         if (this.config.studentId) {
-            window.Echo.channel(`student.${this.config.studentId}`)
+            window.Echo.private(`student.${this.config.studentId}`)
                 .listen('.teacher.warning', (e) => {
                     console.log('Teacher warning received:', e);
                     this.showWarning(e.message);
@@ -811,17 +928,32 @@ class ExamTaker {
     }
 
     updateProgress(progress) {
-        console.log('Updating progress:', progress);
+        if (this.debug) {
+            console.log('Updating progress:', progress);
+        }
 
         const answeredCount = document.getElementById('answered-count');
+        const reviewCount = document.getElementById('review-count');
         const progressBar = document.getElementById('progress-bar');
+        const progressContainer = document.getElementById('progress-container');
 
         if (answeredCount) {
             answeredCount.textContent = progress.answered;
         }
 
+        if (reviewCount && typeof progress.marked !== 'undefined') {
+            reviewCount.textContent = progress.marked;
+        }
+
         if (progressBar) {
-            progressBar.style.width = `${(progress.answered / progress.total) * 100}%`;
+            const pct = progress.total > 0 ? (progress.answered / progress.total) * 100 : 0;
+            progressBar.style.width = `${pct}%`;
+            progressBar.setAttribute('aria-valuenow', String(progress.answered));
+        }
+
+        if (progressContainer) {
+            progressContainer.setAttribute('aria-valuemax', String(progress.total));
+            progressContainer.setAttribute('aria-valuenow', String(progress.answered));
         }
     }
 
@@ -829,19 +961,47 @@ class ExamTaker {
         const warningDiv = document.createElement('div');
         warningDiv.className = 'alert alert-warning alert-dismissible fade show position-fixed top-0 end-0 m-3';
         warningDiv.style.zIndex = '9999';
+        warningDiv.setAttribute('role', 'alert');
         warningDiv.innerHTML = `
             <strong>Warning:</strong> ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         `;
         document.body.appendChild(warningDiv);
 
         setTimeout(() => warningDiv.remove(), 5000);
     }
 
-    async submitExam() {
+    async submitExam(options = {}) {
         if (this.debug) console.log('Submit exam called');
 
-        if (!confirm('Are you sure you want to submit your exam? This action cannot be undone.')) {
+        if (this.isSubmitting) return;
+
+        // A paused session cannot be submitted server-side (submit requires
+        // in_progress): block early with an actionable message instead of a
+        // generic failure after the round-trip. Resume needs the teacher.
+        // Server truth (not the local flag: a reload while paused resets it).
+        if (!options.skipConfirm) {
+            try {
+                const statusRes = await fetch(`/exam/session/${this.sessionId}/status`, {
+                    headers: {'Accept': 'application/json', 'X-CSRF-TOKEN': this.config.csrf},
+                });
+                if (statusRes.ok) {
+                    const state = await statusRes.json();
+                    if (state.status === 'paused') {
+                        this.showWarning('Your exam is paused. Please resume it before submitting.');
+                        return;
+                    }
+                    if (state.status === 'terminated' || state.status === 'expired') {
+                        this.showWarning('Your exam session has ended.');
+                        window.location.href = '/student/dashboard?ended=1';
+                        return;
+                    }
+                }
+            } catch (error) {
+                if (this.debug) console.warn('Pre-submit status check failed, continuing:', error);
+            }
+
+            this.showSubmitModal();
             return;
         }
 
@@ -860,6 +1020,7 @@ class ExamTaker {
         }
 
         try {
+            await this.flushUnsavedAnswers();
             const answers = this.collectAllAnswers();
             await this.syncTimer('in_progress');
 
@@ -887,7 +1048,7 @@ class ExamTaker {
                 }
 
                 this.allowUnload = true;
-                window.location.href = data.redirect || '/student/dashboard';
+                window.location.href = (data.redirect || '/student/dashboard') + '?submitted=1';
                 return;
             }
 
@@ -902,7 +1063,7 @@ class ExamTaker {
             throw new Error('Server returned non-JSON response');
         } catch (error) {
             console.error('Error submitting exam:', error);
-            alert('Failed to submit exam: ' + error.message);
+            this.showWarning('Failed to submit exam: ' + error.message);
             this.isSubmitting = false;
             this.paused = false;
             if (submitBtn) {
@@ -985,12 +1146,15 @@ class ExamTaker {
             }
 
             if (this.sessionId && this.config.autoSaveInterval) {
-                // Auto-save current state
+                // Auto-save current state — but only real selections. A radio's
+                // .value is always truthy ('A'/'B'), so unchecked radios must
+                // be skipped or they overwrite the saved answer with null.
                 const currentCard = document.querySelector('.question-card:not(.d-none)');
                 if (currentCard) {
                     const inputs = currentCard.querySelectorAll('input, textarea');
                     inputs.forEach(input => {
-                        if (input.value || input.checked) {
+                        const isChoice = input.type === 'radio' || input.type === 'checkbox';
+                        if (isChoice ? input.checked : !!input.value) {
                             this.saveAnswer(input);
                         }
                     });
@@ -1013,17 +1177,20 @@ class ExamTaker {
             clearInterval(this.autoSaveInterval);
             this.autoSaveInterval = null;
         }
+        if (this.statusGuardInterval) {
+            clearInterval(this.statusGuardInterval);
+            this.statusGuardInterval = null;
+        }
     }
 
     autoSubmit() {
         this.cleanup();
-        alert('Time is up! Your exam will be submitted automatically.');
-        this.submitExam();
+        this.submitExam({ skipConfirm: true });
     }
 
     forceEndExam(message = 'Your exam was ended by the Admin', redirect = '/student/dashboard?ended=1') {
         this.cleanup();
-        alert(message);
+        this.showWarning(message);
         window.location.href = redirect;
     }
 
@@ -1042,25 +1209,20 @@ class ExamTaker {
 
 // Initialize when page loads
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM fully loaded, checking for exam container...');
-
     const examContainer = document.getElementById('exam-container');
     if (examContainer) {
-        console.log('Exam container found, initializing ExamTaker');
-        console.log('Session ID:', examContainer.dataset.sessionId);
-        console.log('Exam ID:', examContainer.dataset.examId);
-        console.log('Config:', examContainer.dataset.config);
-
         try {
+            const config = JSON.parse(examContainer.dataset.config);
+            if (config.debug) {
+                console.log('Exam container found, initializing ExamTaker');
+            }
             new ExamTaker(
                 examContainer.dataset.sessionId,
                 examContainer.dataset.examId,
-                JSON.parse(examContainer.dataset.config)
+                config
             );
         } catch (error) {
             console.error('Error initializing ExamTaker:', error);
         }
-    } else {
-        console.log('No exam container found on this page');
     }
 });
