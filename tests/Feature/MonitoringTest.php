@@ -7,7 +7,9 @@ use App\Models\ExamSession;
 use App\Models\Question;
 use App\Models\Subject;
 use App\Models\User;
+use App\Events\ExamStartAllowed;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
 
 class MonitoringTest extends TestCase
@@ -71,6 +73,8 @@ class MonitoringTest extends TestCase
 
     public function test_teacher_mass_starts_scheduled_sessions(): void
     {
+        Event::fake([ExamStartAllowed::class]);
+
         $this->actingAs($this->teacher)
             ->postJson(route('teacher.monitor.start', $this->exam))
             ->assertOk()
@@ -79,6 +83,12 @@ class MonitoringTest extends TestCase
 
         $this->assertEquals('in_progress', $this->session->fresh()->status);
         $this->assertNotNull($this->session->fresh()->started_at);
+        // The lobby "Proceed" button depends on this broadcast reaching the
+        // student: a dispatch-side regression strands it silently.
+        Event::assertDispatched(ExamStartAllowed::class, function ($event) {
+            return $event->sessionId === $this->session->id
+                && $event->examId === $this->exam->id;
+        });
     }
 
     public function test_teacher_warns_and_resumes_paused_session(): void

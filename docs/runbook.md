@@ -41,6 +41,14 @@ scheduler must be started separately (see `codebase-summary` §5).
 - **Queue down**: broadcasts (`ShouldBroadcast`) pile in `jobs`; lobby
   Proceed never unlocks, monitor goes stale. Check `queue:work` first —
   this was the root cause of the first 2-browser failure.
+- **Queue driver mismatch** (same symptoms as queue down): the app's
+  `QUEUE_CONNECTION` MUST equal the driver the worker listens on. A redis
+  worker never sees jobs queued to `database` and vice versa — broadcasts
+  pile silently with zero errors. Diagnosed once via `jobs`-table rows
+  while all redis queues read empty; fixed by aligning `.env`.
+- **Stale frontend bundle**: `VITE_REVERB_*` bakes in at build time. After
+  changing any `REVERB_*` value, `npm run build` again and hard-refresh —
+  otherwise Echo dials the old ws port.
 - **Reverb down**: Echo `ERR_CONNECTION_REFUSED` in browser console; same
   symptoms as queue down. Check the `:8081` listener.
 - **Port clash on :8080** (resolved): Reverb used to share `:8080` with the
