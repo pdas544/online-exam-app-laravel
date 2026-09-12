@@ -144,6 +144,14 @@ class GradingCompletedTest extends TestCase
         $response->assertOk()->assertSee('grading');
     }
 
+    public function test_dashboard_shows_submitted_banner(): void
+    {
+        $response = $this->actingAs($this->student)
+            ->get(route('student.dashboard', ['submitted' => 1]));
+
+        $response->assertOk()->assertSee('submitted successfully', false);
+    }
+
     public function test_standalone_student_events_use_broadcasts_queue(): void
     {
         $session = $this->makeSession('in_progress');

@@ -25,6 +25,14 @@
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
             </div>
         @endif
+        @if(request()->query('submitted'))
+            <div class="alert alert-success alert-dismissible fade show" role="status">
+                Exam submitted successfully! Your score will appear under
+                <a href="{{ route('student.results.index') }}" class="alert-link">My Results</a>
+                once grading completes.
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        @endif
         @if(request()->query('ended'))
             <div class="alert alert-danger alert-dismissible fade show" role="alert">
                 Your exam was ended by the Admin.

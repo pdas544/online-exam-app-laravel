@@ -73,6 +73,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/exam/session/{session}/submit', [ExamSessionController::class, 'submit'])->name('exam.session.submit');
         Route::post('/exam/session/{session}/violation', [ExamSessionController::class, 'logViolation'])->name('exam.session.violation')->middleware('throttle:exam-answers');
         Route::get('/exam/session/{session}/status', [ExamSessionController::class, 'status'])->name('exam.session.status');
+        Route::post('/exam/session/{session}/timer', [ExamSessionController::class, 'syncTimer'])->name('exam.session.timer');
         Route::get('/exam/session/{session}/result', [ExamSessionController::class, 'result'])->name('exam.session.result');
     });
 

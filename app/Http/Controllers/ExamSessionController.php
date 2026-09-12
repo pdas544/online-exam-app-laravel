@@ -6,6 +6,7 @@ use App\Events\ExamEnded;
 use App\Events\StudentJoined;
 use App\Http\Requests\LogViolationRequest;
 use App\Http\Requests\SaveAnswerRequest;
+use App\Http\Requests\SyncTimerRequest;
 use App\Jobs\LogExamViolation;
 use App\Models\Exam;
 use App\Models\ExamSession;
@@ -237,6 +238,21 @@ class ExamSessionController extends Controller
             ],
             'violation_count' => $session->violation_count,
         ]);
+    }
+
+    /**
+     * Persist the client's remaining-time heartbeat. Deliberately narrow:
+     * no status transitions happen here, only the clock stamp, so a stale
+     * or replayed heartbeat can never resume/complete a session.
+     */
+    public function syncTimer(SyncTimerRequest $request, ExamSession $session)
+    {
+        $session->update([
+            'remaining_time' => $request->remaining_time,
+            'last_activity_at' => now(),
+        ]);
+
+        return response()->json(['success' => true]);
     }
 
     /**

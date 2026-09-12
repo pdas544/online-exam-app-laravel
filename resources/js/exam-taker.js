@@ -976,6 +976,14 @@ class ExamTaker {
 
         if (this.isSubmitting) return;
 
+        // A paused session cannot be submitted server-side (submit requires
+        // in_progress): block early with an actionable message instead of a
+        // generic failure after the round-trip. Resume needs the teacher.
+        if (this.paused && !options.skipConfirm) {
+            this.showWarning('Your exam is paused. Please resume it before submitting.');
+            return;
+        }
+
         if (!options.skipConfirm) {
             this.showSubmitModal();
             return;
@@ -1024,7 +1032,7 @@ class ExamTaker {
                 }
 
                 this.allowUnload = true;
-                window.location.href = data.redirect || '/student/dashboard';
+                window.location.href = (data.redirect || '/student/dashboard') + '?submitted=1';
                 return;
             }
 
