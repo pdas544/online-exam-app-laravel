@@ -1,0 +1,13 @@
+# Local prod-like php-fpm pool. Rendered by install.sh — do NOT edit the
+# rendered file in pool.d; edit this template instead.
+# Placeholders: {{USER}} (pool owner).
+[local-exam-system]
+user = {{USER}}
+listen = 127.0.0.1:9001
+; Port 9001 (not 9000) so this pool coexists with the load-test pool.
+pm = static
+pm.max_children = 20
+pm.max_requests = 500
+php_admin_value[memory_limit] = 256M
+php_admin_value[opcache.enable] = 1
+php_admin_value[opcache.memory_consumption] = 256

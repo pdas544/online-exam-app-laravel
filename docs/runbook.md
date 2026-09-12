@@ -4,13 +4,33 @@
 
 | Process | Command | Notes |
 |---|---|---|
-| Web | `php artisan serve` (dev) or nginx + php-fpm | :8000 in dev |
+| Web | `php artisan serve` (daily dev) or nginx + php-fpm (rehearsals — see below) | :8000 dev, :8080 stacks |
 | Queue | `queue:work redis --queue=grading,violations,broadcasts,default --tries=3` (per-queue programs) | via supervisor: `deploy/supervisor.exam-system.conf` |
-| Reverb | `reverb:start --port=8080` | Browsers hit `ws(s)://host:8080` |
+| Reverb | `reverb:start --port=8081` | Browsers hit `ws(s)://host:8081`; :8080 belongs to the web stacks |
 | Scheduler | cron `* * * * *` → `schedule:run` | Drives `exams:expire-sessions` every minute |
 
 `composer run dev` covers web + queue + logs + Vite only — Reverb and the
 scheduler must be started separately (see `codebase-summary` §5).
+
+## Local stacks: daily dev vs rehearsal
+
+- **Daily development stays on `composer run dev`** (`serve` on `:8000`):
+  zero setup, works on any OS, Vite HMR just works. It is single-threaded
+  and proves nothing about concurrency — never rehearse on it.
+- **Rehearsals and load tests run on nginx + php-fpm** (`deploy/local/`,
+  app on `:8080`): `./deploy/local/install.sh` renders the templates with
+  your paths and installs them (needs sudo for `/etc`; `--dry-run` shows
+  the output without touching anything). The fpm pool
+  (`[local-exam-system]`, port 9001) coexists with the load-test pool
+  (port 9000) by design.
+- Switching stacks means switching `APP_URL` (`:8000` vs `:8080`) followed
+  by `php artisan config:clear`. Localhost cookies are shared across ports,
+  so expect session cross-talk when switching — log out and back in.
+- With nginx, Vite HMR still works (`npm run dev`, browser reaches both
+  `:8080` and `:5173`); run `npm run build` for the closest-to-prod check.
+- Rule: **rehearsals and the 100-submit gate run on the fpm stack or the
+  load-test rig, never on `serve`** — and the local site and
+  `./scripts/load-test.sh` are mutually exclusive on `:8080`.
 
 ## Failure stories
 
@@ -22,12 +42,12 @@ scheduler must be started separately (see `codebase-summary` §5).
   Proceed never unlocks, monitor goes stale. Check `queue:work` first —
   this was the root cause of the first 2-browser failure.
 - **Reverb down**: Echo `ERR_CONNECTION_REFUSED` in browser console; same
-  symptoms as queue down. Check `:8080` listener.
-- **Port clash on :8080**: `reverb:start --port=8080` and the load-test
-  nginx (`deploy/loadtest/nginx.conf`) claim the same port and are mutually
-  exclusive. A squatting Reverb answers `/up` but 404s everything else —
-  `scripts/load-test.sh` refuses the run when `GET /login != 200`; stop the
-  squatter (or move `REVERB_PORT`) before load-testing.
+  symptoms as queue down. Check the `:8081` listener.
+- **Port clash on :8080** (resolved): Reverb used to share `:8080` with the
+  web stacks and once poisoned a full load-test run (answers `/up`, 404s
+  everything else). Reverb now defaults to `:8081`; the local nginx site and
+  the load-test nginx both serve `:8080` and stay mutually exclusive —
+  `scripts/load-test.sh` still refuses the run when `GET /login != 200`.
 - **Scheduler down**: timed-out sessions sit `in_progress` forever. Check
   cron; `schedule:list` shows registered commands.
 
