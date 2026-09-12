@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\Queue;
 class DashboardService
 {
     /**
-     * @return array{resumeExams: array, availableExams: array}
+     * @return array{resumeExams: array, availableExams: array, pendingGrades: int}
      */
     public function studentOverview(int $studentId): array
     {
