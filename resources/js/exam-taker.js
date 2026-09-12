@@ -979,12 +979,28 @@ class ExamTaker {
         // A paused session cannot be submitted server-side (submit requires
         // in_progress): block early with an actionable message instead of a
         // generic failure after the round-trip. Resume needs the teacher.
-        if (this.paused && !options.skipConfirm) {
-            this.showWarning('Your exam is paused. Please resume it before submitting.');
-            return;
-        }
-
+        // Server truth (not the local flag: a reload while paused resets it).
         if (!options.skipConfirm) {
+            try {
+                const statusRes = await fetch(`/exam/session/${this.sessionId}/status`, {
+                    headers: {'Accept': 'application/json', 'X-CSRF-TOKEN': this.config.csrf},
+                });
+                if (statusRes.ok) {
+                    const state = await statusRes.json();
+                    if (state.status === 'paused') {
+                        this.showWarning('Your exam is paused. Please resume it before submitting.');
+                        return;
+                    }
+                    if (state.status === 'terminated' || state.status === 'expired') {
+                        this.showWarning('Your exam session has ended.');
+                        window.location.href = '/student/dashboard?ended=1';
+                        return;
+                    }
+                }
+            } catch (error) {
+                if (this.debug) console.warn('Pre-submit status check failed, continuing:', error);
+            }
+
             this.showSubmitModal();
             return;
         }
