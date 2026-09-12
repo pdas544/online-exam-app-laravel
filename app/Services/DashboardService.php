@@ -264,7 +264,7 @@ class DashboardService
     }
 
     /**
-     * @return array{upcomingExams: array}
+     * @return array{upcomingExams: array, recentExams: array}
      */
     public function teacherOverview(int $teacherId): array
     {
@@ -292,7 +292,31 @@ class DashboardService
                 ];
             })->toArray();
 
-        return ['upcomingExams' => $upcoming];
+        // Recently concluded: published exams whose window closed. Without
+        // this, a finished exam vanishes from the dashboard entirely the
+        // moment available_to passes, which reads as missing data.
+        $recent = Exam::where('teacher_id', $teacherId)
+            ->where('status', 'published')
+            ->whereNotNull('available_to')
+            ->where('available_to', '<', now())
+            ->withCount('questions')
+            ->orderBy('available_to', 'desc')
+            ->take(5)
+            ->get()
+            ->map(function (Exam $exam) {
+                return [
+                    'id' => $exam->id,
+                    'title' => $exam->title,
+                    'subject' => $exam->subject->name ?? 'N/A',
+                    'question_count' => $exam->questions_count,
+                    'total_marks' => $exam->total_marks,
+                    'time_limit' => $exam->time_limit,
+                    'available_to' => $exam->available_to
+                        ? $exam->available_to->format('M d, Y h:i A') : '-',
+                ];
+            })->toArray();
+
+        return ['upcomingExams' => $upcoming, 'recentExams' => $recent];
     }
 
     /**

@@ -22,6 +22,7 @@ class TeacherDashboardController extends Controller
 
         return view('dashboard.teacher.index', [
             'upcomingExams' => $overview['upcomingExams'],
+            'recentExams' => $overview['recentExams'],
         ]);
     }
 }

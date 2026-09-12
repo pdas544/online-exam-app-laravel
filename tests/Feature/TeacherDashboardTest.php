@@ -34,4 +34,24 @@ class TeacherDashboardTest extends TestCase
             ->get(route('teacher.dashboard'))
             ->assertOk();
     }
+
+    public function test_dashboard_shows_recently_concluded_exam(): void
+    {
+        $teacher = User::factory()->create(['role' => 'teacher']);
+        $subject = Subject::factory()->create(['created_by' => $teacher->id]);
+        Exam::factory()->create([
+            'subject_id' => $subject->id,
+            'teacher_id' => $teacher->id,
+            'title' => 'Finished Exam',
+            'status' => 'published',
+            'available_from' => now()->subHours(5),
+            'available_to' => now()->subHour(),
+        ]);
+
+        $this->actingAs($teacher)
+            ->get(route('teacher.dashboard'))
+            ->assertOk()
+            ->assertSee('Recently Concluded')
+            ->assertSee('Finished Exam');
+    }
 }
