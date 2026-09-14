@@ -1,0 +1,24 @@
+# Production web stack inside WSL2 (LAN server). Rendered by install.sh — do NOT
+# edit the rendered files in /etc; edit this template instead.
+# Placeholders: APP_PATH (repo root in the Linux fs), FPM_ADDR (pool).
+# Serves port 80 so students use clean http://<server-ip>/ URLs. Reverb is NOT
+# proxied here — browsers dial ws://<server-ip>:8081 directly (supervisor conf).
+server {
+    listen 80 default_server;
+    server_name _;
+    root {{APP_PATH}}/public;
+    index index.php;
+
+    # Instruction-file uploads top out at 5M per validation; headroom here.
+    client_max_body_size 12M;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        fastcgi_pass {{FPM_ADDR}};
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+}
