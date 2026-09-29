@@ -1,0 +1,18 @@
+# Production php-fpm pool (single Ubuntu host). Rendered by install.sh — do NOT
+# edit the rendered file in pool.d; edit this template instead.
+# Placeholders: USER (pool owner — must own APP_PATH).
+[prod-exam-system]
+user = {{USER}}
+group = {{USER}}
+listen = 127.0.0.1:9002
+; Port 9002 so this pool never collides with dev (:9001) / load-test (:9000).
+pm = static
+pm.max_children = 30
+pm.max_requests = 500
+php_admin_value[memory_limit] = 256M
+php_admin_value[opcache.enable] = 1
+php_admin_value[opcache.memory_consumption] = 256
+; Keep timestamp validation ON so emergency deploys take effect without an
+; fpm reload (slight steady-state cost, worth it on exam week).
+php_admin_value[opcache.validate_timestamps] = 1
+php_admin_value[opcache.revalidate_freq] = 60

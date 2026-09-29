@@ -1,0 +1,42 @@
+# Production web stack (single Ubuntu host). Rendered by install.sh — do NOT
+# edit the rendered file in /etc; edit this template instead.
+# Placeholders: APP_PATH (repo root), FPM_ADDR (pool listen),
+# DOMAIN (public hostname, e.g. exams.example.com).
+#
+# Reverb is NOT proxied here — browsers dial wss://DOMAIN:8081 directly
+# (supervisor conf runs `reverb:start --port=8081`). Open 8081/tcp in ufw.
+# Cert paths are certbot defaults; install.sh runs certbot for you, or drop
+# your own certs at these paths before reloading nginx.
+
+server {
+    listen 80;
+    server_name {{DOMAIN}};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name {{DOMAIN}};
+    root {{APP_PATH}}/public;
+    index index.php;
+
+    ssl_certificate /etc/letsencrypt/live/{{DOMAIN}}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{DOMAIN}}/privkey.pem;
+
+    # Instruction-file uploads top out at 5M per validation; headroom here.
+    client_max_body_size 12M;
+
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options SAMEORIGIN always;
+    add_header Referrer-Policy no-referrer-when-downgrade always;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location ~ \.php$ {
+        fastcgi_pass {{FPM_ADDR}};
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+}
