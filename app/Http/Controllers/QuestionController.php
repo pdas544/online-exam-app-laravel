@@ -8,17 +8,13 @@ use App\Models\Subject;
 use App\Support\QuerySearch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Validator;
 
 class QuestionController extends Controller
 {
     /**
      * Constructor - Apply middleware
      */
-    public function __construct()
-    {
-
-    }
+    public function __construct() {}
 
     /**
      * Display a listing of questions.
@@ -41,7 +37,7 @@ class QuestionController extends Controller
         }
 
         // Filter by creator (teachers see only their questions, admins see all)
-        if (!$user->isAdmin()) {
+        if (! $user->isAdmin()) {
             $query->where('created_by', $user->id);
         }
 
@@ -52,7 +48,7 @@ class QuestionController extends Controller
 
         $questions = $query->latest()->paginate(15)->withQueryString();
         $subjectQuery = Subject::query();
-        if(!$user->isAdmin()){
+        if (! $user->isAdmin()) {
             $subjectQuery->forTeacher($user->id);
         }
 
@@ -70,10 +66,11 @@ class QuestionController extends Controller
 
         $user = Auth::user();
         $subjectQuery = Subject::query();
-        if(!$user->isAdmin()){
+        if (! $user->isAdmin()) {
             $subjectQuery->forTeacher($user->id);
         }
         $subjects = $subjectQuery->orderBy('name')->get();
+
         return view('questions.create', compact('subjects'));
     }
 
@@ -105,6 +102,7 @@ class QuestionController extends Controller
         $this->authorize('view', $question);
 
         $question->load(['subject', 'creator', 'exams']);
+
         return view('questions.show', compact('question'));
     }
 
@@ -117,12 +115,12 @@ class QuestionController extends Controller
 
         $user = Auth::user();
         $subjectQuery = Subject::query();
-        if(!$user->isAdmin()){
+        if (! $user->isAdmin()) {
             $subjects = Subject::forTeacher($user->id);
         }
 
         $subjects = $subjectQuery->orderBy('name')->get();
-        if (!$subjects->contains('id', $question->subject_id)) {
+        if (! $subjects->contains('id', $question->subject_id)) {
             $selectedSubject = Subject::query()->whereKey($question->subject_id)->first();
             if ($selectedSubject) {
                 $subjects = $subjects->push($selectedSubject)->sortBy('name')->values();
@@ -135,13 +133,13 @@ class QuestionController extends Controller
     public function duplicate(Request $request, Question $question)
     {
         $newQuestion = $question->replicate();
-        $newQuestion->question_text = '[COPY] ' . $question->question_text;
+        $newQuestion->question_text = '[COPY] '.$question->question_text;
 
         if ($request->filled('subject_id')) {
             $newQuestion->subject_id = $request->subject_id;
         }
 
-        if (!$request->has('include_explanation')) {
+        if (! $request->has('include_explanation')) {
             $newQuestion->explanation = null;
         }
 

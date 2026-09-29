@@ -18,7 +18,7 @@ return new class extends Migration
             $table->foreignId('subject_id')->constrained('subjects')->onDelete('cascade');
             $table->foreignId('teacher_id')->constrained('users')->onDelete('cascade');
             $table->year('academic_year');
-            $table->enum('semester',['1','2','3','4','5','6','7','8'])->default('1');
+            $table->enum('semester', ['1', '2', '3', '4', '5', '6', '7', '8'])->default('1');
             $table->integer('time_limit'); // in minutes
             $table->boolean('shuffle_questions')->default(false);
             $table->boolean('shuffle_options')->default(false);
@@ -32,7 +32,7 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['academic_year','semester']);
+            $table->index(['academic_year', 'semester']);
         });
     }
 

@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('subject_id')->constrained('subjects')->onDelete('cascade');
             $table->text('question_text');
-            $table->enum('question_type', ['mcq_single', 'mcq_multiple','true_false','fill_blank']);
+            $table->enum('question_type', ['mcq_single', 'mcq_multiple', 'true_false', 'fill_blank']);
             $table->json('options')->nullable();
             $table->json('correct_answers');
             $table->integer('points')->default(1);

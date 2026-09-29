@@ -21,7 +21,7 @@ return new class extends Migration
                 'paused',       // Student paused (if allowed)
                 'completed',    // Student submitted exam
                 'terminated',   // Forcefully ended due to violation
-                'expired'       // Time limit exceeded
+                'expired',       // Time limit exceeded
             ])->default('scheduled');
 
             // Timing

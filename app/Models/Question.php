@@ -4,9 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * @property-read Subject|null $subject
@@ -72,6 +72,7 @@ class Question extends Model
     public function getPointsForExam($examId)
     {
         $examQuestion = $this->exams()->where('exam_id', $examId)->first();
+
         return $examQuestion->pivot->points_override ?? $this->points;
     }
 }

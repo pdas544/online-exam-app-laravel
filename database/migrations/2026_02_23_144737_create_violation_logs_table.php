@@ -23,7 +23,7 @@ return new class extends Migration
                 'fullscreen_exit',
                 'multiple_ips',
                 'time_manipulation',
-                'suspicious_activity'
+                'suspicious_activity',
             ]);
 
             $table->text('description');

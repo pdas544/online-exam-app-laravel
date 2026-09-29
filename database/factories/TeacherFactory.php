@@ -23,7 +23,7 @@ class TeacherFactory extends Factory
             'user_id' => $user->id,
             'name' => $user->name,
             'department' => $this->faker->word(),
-            'designation' => $this->faker->word() . ' ' . $this->faker->jobTitle(),
+            'designation' => $this->faker->word().' '.$this->faker->jobTitle(),
         ];
     }
 }

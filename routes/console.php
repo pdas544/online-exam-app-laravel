@@ -1,10 +1,10 @@
 <?php
 
+use App\Models\StudentAnswer;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Schedule;
-use App\Models\StudentAnswer;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schedule;
 
 Schedule::command('exams:expire-sessions')->everyMinute();
 
@@ -120,7 +120,7 @@ Artisan::command('answers:normalize-storage {--dry-run : Show changes without wr
 
             $stats['questions_updated']++;
 
-            if (!$dryRun) {
+            if (! $dryRun) {
                 DB::table('questions')
                     ->where('id', $row->id)
                     ->update([
@@ -152,7 +152,7 @@ Artisan::command('answers:normalize-storage {--dry-run : Show changes without wr
 
             $stats['answers_updated']++;
 
-            if (!$dryRun) {
+            if (! $dryRun) {
                 DB::table('student_answers')
                     ->where('id', $row->id)
                     ->update([
@@ -172,23 +172,24 @@ Artisan::command('answers:normalize-storage {--dry-run : Show changes without wr
             })
             ->chunkById(200, function ($answers) use (&$stats, $dryRun) {
                 foreach ($answers as $answer) {
-                    if (!$answer->question) {
+                    if (! $answer->question) {
                         continue;
                     }
 
-                    if (!$answer->is_answered) {
+                    if (! $answer->is_answered) {
                         $stats['answers_regraded']++;
-                        if (!$dryRun) {
+                        if (! $dryRun) {
                             $answer->update([
                                 'is_correct' => false,
                                 'points_earned' => 0,
                             ]);
                         }
+
                         continue;
                     }
 
                     $stats['answers_regraded']++;
-                    if (!$dryRun) {
+                    if (! $dryRun) {
                         $answer->autoGrade();
                     }
                 }

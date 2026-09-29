@@ -12,10 +12,7 @@ use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-    public function __construct()
-    {
-
-    }
+    public function __construct() {}
 
     public function index(Request $request)
     {
@@ -45,6 +42,7 @@ class UserController extends Controller
     public function create()
     {
         $this->authorize('create', User::class);
+
         return view('users.create');
     }
 
@@ -78,12 +76,14 @@ class UserController extends Controller
     public function show(User $user)
     {
         $this->authorize('view', $user);
+
         return view('users.show', compact('user'));
     }
 
     public function edit(User $user)
     {
         $this->authorize('update', $user);
+
         return view('users.edit', compact('user'));
     }
 

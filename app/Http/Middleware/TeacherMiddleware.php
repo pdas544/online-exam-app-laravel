@@ -10,11 +10,11 @@ class TeacherMiddleware
 {
     public function handle(Request $request, Closure $next)
     {
-        if (!Auth::check()) {
+        if (! Auth::check()) {
             return redirect()->route('login');
         }
 
-        if (!Auth::user()->isTeacher() && !Auth::user()->isAdmin()) {
+        if (! Auth::user()->isTeacher() && ! Auth::user()->isAdmin()) {
             abort(403, 'Unauthorized access. Teacher privileges required.');
         }
 

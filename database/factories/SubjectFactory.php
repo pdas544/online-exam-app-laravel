@@ -18,10 +18,10 @@ class SubjectFactory extends Factory
     public function definition(): array
     {
         return [
-            //restrict the length of the name to 100 characters due to postgreSql limit
-            'name' => substr($this->faker->words(2, true),0,199),
-            'description'=>substr($this->faker->paragraph(),0,254),
-            'created_by'=> User::factory(),
+            // restrict the length of the name to 100 characters due to postgreSql limit
+            'name' => substr($this->faker->words(2, true), 0, 199),
+            'description' => substr($this->faker->paragraph(), 0, 254),
+            'created_by' => User::factory(),
         ];
     }
 }

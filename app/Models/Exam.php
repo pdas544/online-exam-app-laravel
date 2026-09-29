@@ -4,10 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * @property-read Subject|null $subject
@@ -82,6 +82,7 @@ class Exam extends Model
     public function scopeActive($query)
     {
         $now = now();
+
         return $query->published()
             ->where('available_from', '<=', $now)
             ->where('available_to', '>=', $now);
@@ -105,8 +106,9 @@ class Exam extends Model
         }
 
         $now = now();
-        return (!$this->available_from || $this->available_from <= $now) &&
-            (!$this->available_to || $this->available_to >= $now);
+
+        return (! $this->available_from || $this->available_from <= $now) &&
+            (! $this->available_to || $this->available_to >= $now);
     }
 
     public function calculateTotalMarks()

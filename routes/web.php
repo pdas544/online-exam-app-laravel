@@ -12,6 +12,7 @@ use App\Http\Controllers\HomeController;
 use App\Http\Controllers\QuestionController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\Teacher\LiveMonitoringController;
+use App\Http\Controllers\Teacher\ReportController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
@@ -87,6 +88,18 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/monitor/session/{session}/warn', [LiveMonitoringController::class, 'sendWarning'])->name('monitor.warn');
         Route::post('/monitor/session/{session}/end', [ExamSessionController::class, 'forceEnd'])->name('monitor.force-end');
         Route::post('/monitor/session/{session}/resume', [LiveMonitoringController::class, 'resumeSession'])->name('monitor.resume');
+
+        // Teacher reports (offline-equivalent: register, summary, question analysis, student card) + CSV/PDF exports
+        Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+        Route::get('/reports/{exam}', [ReportController::class, 'show'])->name('reports.show');
+        Route::get('/reports/{exam}/student/{session}', [ReportController::class, 'studentCard'])->name('reports.student');
+        Route::get('/reports/{exam}/csv/register', [ReportController::class, 'csvRegister'])->name('reports.csv.register');
+        Route::get('/reports/{exam}/csv/questions', [ReportController::class, 'csvQuestions'])->name('reports.csv.questions');
+        Route::get('/reports/{exam}/student/{session}/csv', [ReportController::class, 'csvStudentCard'])->name('reports.csv.student');
+        Route::get('/reports/{exam}/pdf/register', [ReportController::class, 'pdfRegister'])->name('reports.pdf.register');
+        Route::get('/reports/{exam}/pdf/summary', [ReportController::class, 'pdfSummary'])->name('reports.pdf.summary');
+        Route::get('/reports/{exam}/pdf/questions', [ReportController::class, 'pdfQuestions'])->name('reports.pdf.questions');
+        Route::get('/reports/{exam}/student/{session}/pdf', [ReportController::class, 'pdfStudentCard'])->name('reports.pdf.student');
     });
 });
 

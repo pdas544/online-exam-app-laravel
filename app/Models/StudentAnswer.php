@@ -74,7 +74,7 @@ class StudentAnswer extends Model
     // Helper Methods
     public function autoGrade(): void
     {
-        if (!$this->question) {
+        if (! $this->question) {
             return;
         }
 

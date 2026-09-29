@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Cache;
 class SubjectService
 {
     private const CACHE_KEY = 'subjects.all';
+
     private const CACHE_TTL_SECONDS = 3600;
 
     public function getAllSubjects()

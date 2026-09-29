@@ -23,10 +23,10 @@ class LiveMonitoringController extends Controller
         $teacherId = Auth::id();
 
         $activeExams = Exam::where('teacher_id', $teacherId)
-            ->whereHas('sessions', function($q) {
+            ->whereHas('sessions', function ($q) {
                 $q->whereIn('status', ['scheduled', 'in_progress', 'paused']);
             })
-            ->withCount(['sessions' => function($q) {
+            ->withCount(['sessions' => function ($q) {
                 $q->whereIn('status', ['scheduled', 'in_progress', 'paused']);
             }])
             ->get();
@@ -76,24 +76,24 @@ class LiveMonitoringController extends Controller
         $sessions = $exam->sessions;
 
         $mapped = $sessions->map(function (ExamSession $session) {
-                $liveTimeSpent = $session->time_spent;
+            $liveTimeSpent = $session->time_spent;
 
-                if ($session->status === 'in_progress' && $session->started_at) {
-                    $liveTimeSpent = max(0, now()->diffInSeconds($session->started_at));
-                }
+            if ($session->status === 'in_progress' && $session->started_at) {
+                $liveTimeSpent = max(0, now()->diffInSeconds($session->started_at));
+            }
 
-                return [
-                    'id' => $session->id,
-                    'student_name' => $session->student->name,
-                    'student_email' => $session->student->email,
-                    'status' => $session->status,
-                    'progress' => $session->answered_answers_count,
-                    'total' => $session->total_questions,
-                    'time_spent' => $liveTimeSpent,
-                    'violations' => $session->violation_count,
-                    'last_activity' => $session->last_activity_at?->diffForHumans() ?? 'Just now',
-                ];
-            });
+            return [
+                'id' => $session->id,
+                'student_name' => $session->student->name,
+                'student_email' => $session->student->email,
+                'status' => $session->status,
+                'progress' => $session->answered_answers_count,
+                'total' => $session->total_questions,
+                'time_spent' => $liveTimeSpent,
+                'violations' => $session->violation_count,
+                'last_activity' => $session->last_activity_at?->diffForHumans() ?? 'Just now',
+            ];
+        });
 
         return response()->json([
             'sessions' => $mapped,

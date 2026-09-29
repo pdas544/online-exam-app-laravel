@@ -47,6 +47,7 @@ class ExamController extends Controller
         $this->authorize('create', Exam::class);
 
         $subjects = Subject::orderBy('name')->get();
+
         return view('exams.create', compact('subjects'));
     }
 
@@ -94,6 +95,7 @@ class ExamController extends Controller
         $this->authorize('update', $exam);
 
         $subjects = Subject::orderBy('name')->get();
+
         return view('exams.edit', compact('exam', 'subjects'));
     }
 
@@ -268,5 +270,4 @@ class ExamController extends Controller
 
         return back()->with('success', $attached.' questions added to exam successfully.');
     }
-
 }

@@ -24,6 +24,8 @@ class ExamSession extends Model
         'student_id',
         'teacher_id',
         'status',
+        'end_reason',
+        'ended_by',
         'started_at',
         'submitted_at',
         'paused_at',
@@ -55,6 +57,7 @@ class ExamSession extends Model
         'score' => 'decimal:2',
         'passed' => 'boolean',
         'fullscreen_enabled' => 'boolean',
+        'ended_by' => 'integer',
     ];
 
     // Relationships
@@ -151,6 +154,7 @@ class ExamSession extends Model
         // Auto-terminate after 5 violations
         if ($this->violation_count >= 5) {
             $this->status = 'terminated';
+            $this->end_reason = 'auto_terminated';
             $this->save();
             $violation->update(['auto_terminated' => true]);
         }

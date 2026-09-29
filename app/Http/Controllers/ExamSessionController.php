@@ -263,7 +263,7 @@ class ExamSessionController extends Controller
         $this->authorize('forceEnd', $session);
 
         try {
-            $this->sessions->forceEnd($session);
+            $this->sessions->forceEnd($session, Auth::id());
         } catch (\DomainException $e) {
             return back()->with('error', 'Only an active exam session can be terminated.');
         }

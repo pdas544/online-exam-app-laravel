@@ -2,12 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Events\ExamStartAllowed;
 use App\Models\Exam;
 use App\Models\ExamSession;
 use App\Models\Question;
 use App\Models\Subject;
 use App\Models\User;
-use App\Events\ExamStartAllowed;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Tests\TestCase;

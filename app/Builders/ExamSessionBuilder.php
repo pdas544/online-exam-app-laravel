@@ -17,24 +17,28 @@ class ExamSessionBuilder
     public function forExam(int $examId): self
     {
         $this->query->where('exam_id', $examId);
+
         return $this;
     }
 
     public function forStudent(int $studentId): self
     {
         $this->query->where('student_id', $studentId);
+
         return $this;
     }
 
     public function forTeacher(int $teacherId): self
     {
         $this->query->where('teacher_id', $teacherId);
+
         return $this;
     }
 
     public function statuses(array $statuses): self
     {
         $this->query->whereIn('status', $statuses);
+
         return $this;
     }
 
@@ -90,6 +94,7 @@ class ExamSessionBuilder
     public function latestBy(string $column = 'updated_at'): self
     {
         $this->query->latest($column);
+
         return $this;
     }
 

@@ -203,7 +203,7 @@ class ExamSessionService
         return $session->fresh();
     }
 
-    public function forceEnd(ExamSession $session): void
+    public function forceEnd(ExamSession $session, ?int $endedBy = null): void
     {
         if (! in_array($session->status, ['scheduled', 'in_progress', 'paused'], true)) {
             throw new DomainException('Only an active exam session can be terminated.');
@@ -211,6 +211,8 @@ class ExamSessionService
 
         $session->update([
             'status' => 'terminated',
+            'end_reason' => 'force_ended',
+            'ended_by' => $endedBy,
             'submitted_at' => now(),
         ]);
     }
@@ -258,6 +260,7 @@ class ExamSessionService
                     if ($session->timeRemaining() <= 0) {
                         $session->update([
                             'status' => 'expired',
+                            'end_reason' => 'expired',
                             'submitted_at' => now(),
                         ]);
                         $expired++;
